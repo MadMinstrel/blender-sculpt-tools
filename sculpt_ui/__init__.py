@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Sculpt Tools UI",
-    "author": "Nicholas Bishop, Roberto Roch, Jose Conseco, Piotr Adamowicz",
+    "author": "Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
     "version": (0, 2),
     "blender": (2, 5, 5),
     "location": "Sculpt>Toool shelf",
@@ -72,6 +72,27 @@ def objDuplicate(obj):
 
 
 
+class BooleanMeshDeformOperator(bpy.types.Operator):
+    '''Binds a deforming mesh to the object'''
+    bl_idname = "boolean.mesh_deform"
+    bl_label = "Mesh deform"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and len(bpy.context.selected_objects)==2
+
+    def execute(self, context):
+        activeObj = context.active_object
+        for SelectedObject in bpy.context.selected_objects :
+            if SelectedObject != activeObj :
+                md = activeObj.modifiers.new('mesh_deform', 'MESH_DEFORM')
+                md.object = SelectedObject
+                bpy.ops.object.meshdeform_bind(modifier="mesh_deform")
+                bpy.context.scene.objects.active = SelectedObject
+        return {'FINISHED'}
+    
+
+
 class ModApplyOperator(bpy.types.Operator):
     '''Toggles sculpt mode X symmetry'''
     bl_idname = "boolean.mod_apply"
@@ -95,6 +116,7 @@ class ModApplyOperator(bpy.types.Operator):
         return context.active_object is not None
 
     def execute(self, context):
+        print( "hello")
         activeObj = context.active_object
         for SelectedObject in bpy.context.selected_objects :
                
@@ -131,7 +153,7 @@ class XMirrorOperator(bpy.types.Operator):
                     md = SelectedObject.modifiers.new('xmirror', 'MIRROR')
                     md.mirror_object = activeObj
 
-                    #bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+                    bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
 
                     bpy.ops.object.mode_set(mode=oldMode)
                     bpy.context.scene.objects.active = activeObj
@@ -145,7 +167,7 @@ class XMirrorOperator(bpy.types.Operator):
 
             md = activeObj.modifiers.new('xmirror', 'MIRROR')
 
-            #bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+            bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
 
             bpy.ops.object.mode_set(mode=oldMode)
                 
@@ -417,7 +439,10 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row4.alignment = 'EXPAND'
         row4.operator("boolean.mod_apply", text="Apply Mods")
         row4.operator("boolean.mod_xmirror", text="X-Mirror")
-#        row4.operator("boolean.debug", text="Debug")
+        
+        row5 = layout.row(align=True)
+        row5.alignment = 'EXPAND'
+        row5.operator("boolean.mesh_deform", text="Mesh Deform")
         
 
 def register():
@@ -425,6 +450,12 @@ def register():
     
     #km = bpy.context.window_manager.keyconfigs.active.keymaps['3D View']
     #km.keymap_items.new('view3d.mode_menu', 'TAB', 'PRESS', key_modifier="Q")
+    
+#    km = bpy.context.window_manager.keyconfigs.active.keymaps['3D View']
+#    for kmi in km.keymap_items:
+#        if kmi.idname == 'view3d.mode_menu':
+#            km.keymap_items.remove(kmi)
+#            break
     
 def unregister():
     bpy.utils.unregister_module(__name__)
