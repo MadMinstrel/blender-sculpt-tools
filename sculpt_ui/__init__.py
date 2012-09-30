@@ -155,7 +155,7 @@ class XMirrorOperator(bpy.types.Operator):
                     md = SelectedObject.modifiers.new('xmirror', 'MIRROR')
                     md.mirror_object = activeObj
 
-                    bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+#                    bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
 
                     bpy.ops.object.mode_set(mode=oldMode)
                     bpy.context.scene.objects.active = activeObj
