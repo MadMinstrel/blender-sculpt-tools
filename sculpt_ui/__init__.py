@@ -89,6 +89,8 @@ class BooleanMeshDeformOperator(bpy.types.Operator):
                 md.object = SelectedObject
                 bpy.ops.object.meshdeform_bind(modifier="mesh_deform")
                 bpy.context.scene.objects.active = SelectedObject
+                SelectedObject.draw_type="WIRE"
+                bpy.ops.object.mode_set(mode='EDIT')
         return {'FINISHED'}
     
 
