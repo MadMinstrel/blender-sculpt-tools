@@ -446,21 +446,65 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row5.alignment = 'EXPAND'
         row5.operator("boolean.mesh_deform", text="Mesh Deform")
         
+class BooleanOpsMenu(bpy.types.Menu):
+    bl_label = "Booleans"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator_context = 'INVOKE_REGION_WIN'
+
+        layout.operator("boolean.union",
+                        text="Union",
+                        icon='ROTATECOLLECTION')
+        layout.operator("boolean.difference",
+                        text="Difference",
+                        icon='ROTACTIVE')
+        layout.operator("boolean.intersect",
+                        text="Intersection",
+                        icon='ROTATECENTER')
+
+
+        layout.separator()
+        layout.operator("boolean.separate",
+                        text="Separate",
+                        icon='ARROW_LEFTRIGHT')
+        layout.operator("boolean.clone",
+                        text="Clone",
+                        icon='MOD_BOOLEAN')
+        layout.separator()
+        layout.operator("boolean.mod_apply",
+                        text="Apply Modifiers",
+                        icon='MODIFIER')
+        layout.operator("boolean.mod_xmirror",
+                        text="X-Mirror",
+                        icon='MOD_MIRROR')
+        layout.operator("boolean.mesh_deform",
+                        text="Mesh Deform",
+                        icon='MOD_MESHDEFORM')
+        
 
 def register():
     bpy.utils.register_module(__name__)
     
-    #km = bpy.context.window_manager.keyconfigs.active.keymaps['3D View']
-    #km.keymap_items.new('view3d.mode_menu', 'TAB', 'PRESS', key_modifier="Q")
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl=True)
+        kmi.properties.name = "BooleanOpsMenu"
     
-#    km = bpy.context.window_manager.keyconfigs.active.keymaps['3D View']
-#    for kmi in km.keymap_items:
-#        if kmi.idname == 'view3d.mode_menu':
-#            km.keymap_items.remove(kmi)
-#            break
+
     
 def unregister():
     bpy.utils.unregister_module(__name__)
+    
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if kc:
+        km = kc.keymaps["3D View"]
+        for kmi in km.keymap_items:
+            if kmi.idname == 'wm.call_menu':
+                if kmi.properties.name == "BooleanOpsMenu":
+                    km.keymap_items.remove(kmi)
+                    break
 
 if __name__ == "__main__":
     register()
