@@ -174,6 +174,28 @@ class XMirrorOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode=oldMode)
                 
         return {'FINISHED'}
+    
+class DuntopoUpdateOperator(bpy.types.Operator):
+    '''Update Dynamic topology'''
+    bl_idname = "sculpt.dyntopo_update"
+    bl_label = "Dyntopo Update"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+    
+    def execute(self, context):
+        ob = context.active_object
+        #try for whether we're running a dyntopo branch
+        try:
+            if context.sculpt_object.use_dynamic_topology_sculpting:
+                bpy.ops.sculpt.dynamic_topology_toggle()
+                bpy.ops.sculpt.dynamic_topology_toggle()
+        except:
+            pass
+        
+        return {'FINISHED'}
+        
 
 class RemeshOperator(bpy.types.Operator):
     '''Remesh an object at the given octree depth'''
@@ -491,8 +513,13 @@ def register():
         km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
         kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl=True)
         kmi.properties.name = "BooleanOpsMenu"
-    
-
+        
+        km2 = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        km2i = km.keymap_items.new('sculpt.dyntopo_update', 'U', 'PRESS')
+        
+        km2 = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        km2i = km.keymap_items.new('wm.context_toggle', 'X', 'PRESS')
+        km2i.properties.data_path = "tool_settings.sculpt.use_symmetry_x"
     
 def unregister():
     bpy.utils.unregister_module(__name__)
