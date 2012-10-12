@@ -14,12 +14,7 @@ bl_info = {
 import bpy
 from bpy.props import *
 
-# Define an RNA prop for every object
-bpy.types.Object.remeshDepthInt = IntProperty(
-    name="Depth", 
-    min = 2, max = 10,
-    default = 4)
-    
+
 # helper function for face selection
 def objSelectFaces(obj, mode):
     
@@ -76,6 +71,7 @@ class BooleanMeshDeformOperator(bpy.types.Operator):
     '''Binds a deforming mesh to the object'''
     bl_idname = "boolean.mesh_deform"
     bl_label = "Mesh deform"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -93,32 +89,20 @@ class BooleanMeshDeformOperator(bpy.types.Operator):
                 bpy.ops.object.mode_set(mode='EDIT')
         return {'FINISHED'}
     
-
-
-class ModApplyOperator(bpy.types.Operator):
-    '''Toggles sculpt mode X symmetry'''
-    bl_idname = "boolean.mod_apply"
-    bl_label = "Apply Modifiers"
-
-    @classmethod
-    def poll(cls, context):
-        return context.active_object is not None
-
-    def execute(self, context):
-
-        return {'FINISHED'}
-
+    
+    
+    
 class ModApplyOperator(bpy.types.Operator):
     '''Applies all modifiers for all selected objects. Also works in sculpt or edit mode.'''
     bl_idname = "boolean.mod_apply"
     bl_label = "Apply Modifiers"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
         return context.active_object is not None
 
     def execute(self, context):
-        print( "hello")
         activeObj = context.active_object
         for SelectedObject in bpy.context.selected_objects :
                
@@ -136,6 +120,7 @@ class XMirrorOperator(bpy.types.Operator):
     '''Applies an X-axis mirror modifier to the selected object. If more objects are selected, they will be mirrored around the active object.'''
     bl_idname = "boolean.mod_xmirror"
     bl_label = "X-Mirror"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -155,7 +140,7 @@ class XMirrorOperator(bpy.types.Operator):
                     md = SelectedObject.modifiers.new('xmirror', 'MIRROR')
                     md.mirror_object = activeObj
 
-#                    bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+
 
                     bpy.ops.object.mode_set(mode=oldMode)
                     bpy.context.scene.objects.active = activeObj
@@ -175,10 +160,11 @@ class XMirrorOperator(bpy.types.Operator):
                 
         return {'FINISHED'}
     
-class DuntopoUpdateOperator(bpy.types.Operator):
+class DyntopoUpdateOperator(bpy.types.Operator):
     '''Update Dynamic topology'''
     bl_idname = "sculpt.dyntopo_update"
     bl_label = "Dyntopo Update"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -201,14 +187,22 @@ class RemeshOperator(bpy.types.Operator):
     '''Remesh an object at the given octree depth'''
     bl_idname = "sculpt.remesh"
     bl_label = "Sculpt Remesh"
-    depth = bpy.props.IntProperty()
+
+    bl_options = {'REGISTER', 'UNDO'}
     @classmethod
     def poll(cls, context):
         return context.active_object is not None
     
+    def draw(self, context): 
+        wm = context.window_manager
+        layout = self.layout
+        layout.prop(wm, "remeshDepthInt", text="Deth")
+        
+        
     def execute(self, context):
         # add a smooth remesh modifier
         ob = context.active_object
+        wm = context.window_manager
         dyntopoOn = False
         #try for whether we're running a dyntopo branch
         try:
@@ -220,7 +214,7 @@ class RemeshOperator(bpy.types.Operator):
             
         md = ob.modifiers.new('sculptremesh', 'REMESH')
         md.mode = 'SMOOTH'
-        md.octree_depth = ob.remeshDepthInt
+        md.octree_depth = wm.remeshDepthInt
         md.scale = .99
         md.remove_disconnected_pieces = False
 
@@ -237,6 +231,7 @@ class BooleanUnionOperator(bpy.types.Operator):
     '''Creates an union of the selected objects'''
     bl_idname = "boolean.union"
     bl_label = "Boolean Union"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -267,6 +262,7 @@ class BooleanDifferenceOperator(bpy.types.Operator):
     '''Subtracts the selection from the active object'''
     bl_idname = "boolean.difference"
     bl_label = "Boolean Difference"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -300,6 +296,7 @@ class BooleanIntersectOperator(bpy.types.Operator):
     '''Creates an intersection of all the selected objects'''
     bl_idname = "boolean.intersect"
     bl_label = "Boolean intersect"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -334,6 +331,7 @@ class BooleanCloneOperator(bpy.types.Operator):
     '''Clones the intersecting part of the mesh'''
     bl_idname = "boolean.clone"
     bl_label = "Boolean clone"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -368,6 +366,7 @@ class BooleanSeparateOperator(bpy.types.Operator):
     '''Separates the active object along the intersection of the selected objects'''
     bl_idname = "boolean.separate"
     bl_label = "Boolean separation"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -431,19 +430,14 @@ class RemeshBooleanPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        obj = context.object
+        wm = context.window_manager
         
         row = layout.row(align=True)
         row.alignment = 'EXPAND'
 
         try:
-            RemeshDepth = obj.remeshDepthInt
-        except:
-            RemeshDepth = 0
-        
-        try:
-            row.operator("sculpt.remesh", text='Remesh').depth = RemeshDepth
-            row.prop(obj, 'remeshDepthInt')
+            row.operator("sculpt.remesh", text='Remesh')
+            row.prop(wm, 'remeshDepthInt', text="Depth")
         except:
             pass
 
@@ -520,6 +514,9 @@ def register():
         km2 = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
         km2i = km.keymap_items.new('wm.context_toggle', 'X', 'PRESS')
         km2i.properties.data_path = "tool_settings.sculpt.use_symmetry_x"
+    bpy.types.WindowManager.remeshDepthInt = IntProperty(
+    min = 2, max = 10,
+    default = 4)
     
 def unregister():
     bpy.utils.unregister_module(__name__)
@@ -532,6 +529,10 @@ def unregister():
                 if kmi.properties.name == "BooleanOpsMenu":
                     km.keymap_items.remove(kmi)
                     break
+    try:
+        del bpy.types.WindowManager.remeshDepthInt
+    except:
+        pass
 
 if __name__ == "__main__":
     register()
