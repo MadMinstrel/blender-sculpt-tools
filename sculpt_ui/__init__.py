@@ -196,7 +196,7 @@ class RemeshOperator(bpy.types.Operator):
     def draw(self, context): 
         wm = context.window_manager
         layout = self.layout
-        layout.prop(wm, "remeshDepthInt", text="Deth")
+        layout.prop(wm, "remeshDepthInt", text="Depth")
         
         
     def execute(self, context):
@@ -505,15 +505,19 @@ def register():
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc:
         km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl=True)
+        kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl = True)
         kmi.properties.name = "BooleanOpsMenu"
         
-        km2 = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        km2i = km.keymap_items.new('sculpt.dyntopo_update', 'U', 'PRESS')
+        kmi = km.keymap_items.new('sculpt.dyntopo_update', 'U', 'PRESS')
         
-        km2 = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        km2i = km.keymap_items.new('wm.context_toggle', 'X', 'PRESS')
-        km2i.properties.data_path = "tool_settings.sculpt.use_symmetry_x"
+        kmi = km.keymap_items.new('wm.context_toggle', 'X', 'PRESS')
+        kmi.properties.data_path = "tool_settings.sculpt.use_symmetry_x"
+        
+        kmi = km.keymap_items.new('wm.context_toggle', 'E', 'PRESS', shift = True)
+        kmi.properties.data_path = "tool_settings.sculpt.use_edge_collapse"
+        
+        kmi = km.keymap_items.new('sculpt.dynamic_topology_toggle', 'D', 'PRESS', shift = True)
+        
     bpy.types.WindowManager.remeshDepthInt = IntProperty(
     min = 2, max = 10,
     default = 4)
