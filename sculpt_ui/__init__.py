@@ -194,24 +194,29 @@ class RemeshOperator(bpy.types.Operator):
         return context.active_object is not None
     
     def draw(self, context): 
-        wm = context.window_manager
-        layout = self.layout
-        layout.prop(wm, "remeshDepthInt", text="Depth")
+        if context.active_object.mode != 'SCULPT':   
+            wm = context.window_manager
+            layout = self.layout
+            layout.prop(wm, "remeshDepthInt", text="Depth")
         
         
     def execute(self, context):
         # add a smooth remesh modifier
         ob = context.active_object
         wm = context.window_manager
-        dyntopoOn = False
+        oldMode = ob.mode
+        
         #try for whether we're running a dyntopo branch
+        dyntopoOn = False;
         try:
             if context.sculpt_object.use_dynamic_topology_sculpting:
                 dyntopoOn = True
                 bpy.ops.sculpt.dynamic_topology_toggle()
         except:
             pass
-            
+        
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
         md = ob.modifiers.new('sculptremesh', 'REMESH')
         md.mode = 'SMOOTH'
         md.octree_depth = wm.remeshDepthInt
@@ -220,7 +225,9 @@ class RemeshOperator(bpy.types.Operator):
 
         # apply the modifier
         bpy.ops.object.modifier_apply(apply_as='DATA', modifier="sculptremesh")
-
+        
+        bpy.ops.object.mode_set(mode=oldMode)
+        
         if dyntopoOn == True:
             bpy.ops.sculpt.dynamic_topology_toggle()
 
