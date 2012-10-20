@@ -427,6 +427,22 @@ class BooleanSeparateOperator(bpy.types.Operator):
         
         return {'FINISHED'}
         
+
+class DoubleSidedOffOperator(bpy.types.Operator):
+    '''Turn off double sided for all objects'''
+    bl_idname = "boolean.double_sided_off"
+    bl_label = "Double Sided Off"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        for mesh in bpy.data.meshes:
+            mesh.show_double_sided = False
+        return {'FINISHED'}
+    
+        
 class RemeshBooleanPanel(bpy.types.Panel):
     """UI panel for the Remesh and Boolean buttons"""
     bl_label = "Sculpt Tools"
@@ -468,6 +484,10 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row5 = layout.row(align=True)
         row5.alignment = 'EXPAND'
         row5.operator("boolean.mesh_deform", text="Mesh Deform")
+        
+        row6 = layout.row(align=True)
+        row6.alignment = 'EXPAND'
+        row6.operator("boolean.double_sided_off", text="Double Sided Off")
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
