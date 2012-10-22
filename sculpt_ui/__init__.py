@@ -3,7 +3,7 @@ bl_info = {
     "author": "Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
     "version": (0, 2),
     "blender": (2, 5, 5),
-    "location": "Sculpt>Toool shelf",
+    "location": "3d View > Tool shelf",
     "description": "Simple UI for Boolean and Remesh operators",
     "warning": "",
     "wiki_url": "",
