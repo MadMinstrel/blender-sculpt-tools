@@ -3,7 +3,7 @@ bl_info = {
     "author": "Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
     "version": (0, 2),
     "blender": (2, 5, 5),
-    "location": "3d View > Tool shelf, Ctrl-B",
+    "location": "3d View > Tool shelf, Shift-Ctrl-B",
     "description": "Simple UI for Boolean and Remesh operators",
     "warning": "",
     "wiki_url": "",
@@ -111,7 +111,10 @@ class ModApplyOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             for md in SelectedObject.modifiers :
                 # apply the modifier
-                bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+                try:
+                    bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+                except:
+                    pass
             bpy.ops.object.mode_set(mode=oldMode)
         bpy.context.scene.objects.active = activeObj
         return {'FINISHED'}
@@ -160,28 +163,6 @@ class XMirrorOperator(bpy.types.Operator):
                 
         return {'FINISHED'}
     
-class DyntopoUpdateOperator(bpy.types.Operator):
-    '''Update Dynamic topology'''
-    bl_idname = "sculpt.dyntopo_update"
-    bl_label = "Dyntopo Update"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.active_object is not None
-    
-    def execute(self, context):
-        ob = context.active_object
-        #try for whether we're running a dyntopo branch
-        try:
-            if context.sculpt_object.use_dynamic_topology_sculpting:
-                bpy.ops.sculpt.dynamic_topology_toggle()
-                bpy.ops.sculpt.dynamic_topology_toggle()
-        except:
-            pass
-        
-        return {'FINISHED'}
-        
 
 class RemeshOperator(bpy.types.Operator):
     '''Remesh an object at the given octree depth'''
@@ -221,7 +202,7 @@ class RemeshOperator(bpy.types.Operator):
         md.mode = 'SMOOTH'
         md.octree_depth = wm.remeshDepthInt
         md.scale = .99
-        md.remove_disconnected_pieces = False
+        md.use_remove_disconnected = False
 
         # apply the modifier
         bpy.ops.object.modifier_apply(apply_as='DATA', modifier="sculptremesh")
@@ -532,10 +513,10 @@ def register():
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc:
         km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl = True)
+        kmi = km.keymap_items.new('wm.call_menu', 'B', 'PRESS', ctrl = True, shift = True)
         kmi.properties.name = "BooleanOpsMenu"
         
-        kmi = km.keymap_items.new('sculpt.dyntopo_update', 'U', 'PRESS')
+        kmi = km.keymap_items.new('sculpt.optimize', 'U', 'PRESS')
         
         kmi = km.keymap_items.new('wm.context_toggle', 'X', 'PRESS')
         kmi.properties.data_path = "tool_settings.sculpt.use_symmetry_x"
