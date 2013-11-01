@@ -1,8 +1,8 @@
 bl_info = {
     "name": "Sculpt Tools UI",
-    "author": "Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
-    "version": (0, 2),
-    "blender": (2, 5, 5),
+    "author": "Ian Lloyd Dela Cruz, Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
+    "version": (0, 3),
+    "blender": (2, 6, 9),
     "location": "3d View > Tool shelf, Shift-Ctrl-B",
     "description": "Simple UI for Boolean and Remesh operators",
     "warning": "",
@@ -12,6 +12,7 @@ bl_info = {
 
 
 import bpy
+import mathutils
 from bpy.props import *
 
 
@@ -89,9 +90,6 @@ class BooleanMeshDeformOperator(bpy.types.Operator):
                 bpy.ops.object.mode_set(mode='EDIT')
         return {'FINISHED'}
     
-    
-    
-    
 class ModApplyOperator(bpy.types.Operator):
     '''Applies all modifiers for all selected objects. Also works in sculpt or edit mode.'''
     bl_idname = "boolean.mod_apply"
@@ -163,7 +161,6 @@ class XMirrorOperator(bpy.types.Operator):
                 
         return {'FINISHED'}
     
-
 class RemeshOperator(bpy.types.Operator):
     '''Remesh an object at the given octree depth'''
     bl_idname = "sculpt.remesh"
@@ -214,7 +211,6 @@ class RemeshOperator(bpy.types.Operator):
 
         return {'FINISHED'}
         
-
 class BooleanUnionOperator(bpy.types.Operator):
     '''Creates an union of the selected objects'''
     bl_idname = "boolean.union"
@@ -408,7 +404,6 @@ class BooleanSeparateOperator(bpy.types.Operator):
         
         return {'FINISHED'}
         
-
 class DoubleSidedOffOperator(bpy.types.Operator):
     '''Turn off double sided for all objects'''
     bl_idname = "boolean.double_sided_off"
@@ -422,8 +417,186 @@ class DoubleSidedOffOperator(bpy.types.Operator):
         for mesh in bpy.data.meshes:
             mesh.show_double_sided = False
         return {'FINISHED'}
+		
+class GreaseTrim(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "boolean.grease_trim"
+    bl_label = "Grease Cut"
+    bl_options = {'REGISTER', 'UNDO'}
     
+    trimgeom = EnumProperty(name="Cut Selection:",
+                         items = (("Inner","Delete Inner",""),
+                                  ("Outer","Delete Outer",""),
+                                  ("None","None","")),                                      
+                         default = "None")
+    my_bols = bpy.props.BoolProperty(name = "Toggle Cyclic", description = "", default = False)
+    my_int = bpy.props.IntProperty(name="Smooth Curve", min = 0, max = 99, default = 0)
+    gpurge = bpy.props.BoolProperty(name = "Purge the Pencils", description = "Clears mesh grease pencil user data on restart", default = False)       
+
+    @classmethod 
+    def poll(cls, context):
+        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        #get old cam
+        if context.scene.camera == None:
+            self.report({'WARNING'}, "Set camera first!")
+            return {'FINISHED'}           
+        func = bpy.ops
+        old_cam = bpy.context.scene.camera.name
+        merge_op = context.scene.tool_settings.use_mesh_automerge
+        #create new cam
+        inner = context.active_object.name
+        func.object.empty_add(type='PLAIN_AXES', view_align=False, location=(0, 0, 0))
+        func.view3d.object_as_camera()
+        func.view3d.camera_to_view()
+        func.view3d.viewnumpad(type='CAMERA')
+        #use cam as cut plane angle and length
+        camx = context.active_object.location[0]
+        camy = context.active_object.location[1]
+        camz = context.active_object.location[2]        
+        cam_pos = mathutils.Vector([camx, camy, camz])
+        distf = cam_pos.length
+        distb = cam_pos.length - (cam_pos.length * 2)                      
+        if distf == 0 or distb == 0:
+            self.report({'WARNING'}, "Error in operation!")
+            return {'FINISHED'}
+        func.object.delete(use_global=False)
+        #restore cam
+        context.scene.camera = bpy.data.objects[old_cam]
+        func.view3d.view_persportho()
+        #
+        func.object.select_all(action='DESELECT')
+        context.scene.objects[inner].select = True
+        context.scene.objects.active = bpy.context.scene.objects[inner]
+        #get draw mode of original mesh
+        if context.active_object.grease_pencil == None:
+            self.report({'WARNING'}, "No Grease Pencil linked!")
+            return {'FINISHED'}
+        if bpy.context.active_object.grease_pencil.layers.active == None:
+            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
+            return {'FINISHED'}
+        if context.active_object.grease_pencil.layers.active.active_frame == None:
+            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
+            return {'FINISHED'}        
+        if len(context.active_object.grease_pencil.layers.active.active_frame.strokes) == 0:
+            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
+            return {'FINISHED'}
+        getdm = context.active_object.grease_pencil.draw_mode
+        # transform grease to poly curve to mesh
+        func.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
+        context.active_object.select = False
+        context.scene.objects.active = bpy.context.scene.objects[bpy.context.selected_objects[0].name]
+        func.object.editmode_toggle()
+        #curve functions (cyclic, smooth)
+        if self.my_bols == True:
+            func.curve.cyclic_toggle()
+            func.curve.subdivide()
+        for i in range(0, self.my_int):
+            func.curve.smooth()
+        #
+        func.object.editmode_toggle()
+        func.object.convert(target='MESH')
+        outer = context.active_object.name
+        #position generated cut plane on original object
+        func.object.editmode_toggle()
+        context.scene.tool_settings.use_mesh_automerge = False
+        func.mesh.select_all(action='SELECT')
+        func.object.vertex_group_add()
+        func.object.vertex_group_assign()
+        func.mesh.extrude_edges_move()
+        func.transform.translate(value=(distf, distf, distf), constraint_axis=(False, False, True), constraint_orientation='VIEW')
+        func.object.vertex_group_remove_from()
+        func.mesh.select_all(action='DESELECT')
+        func.object.vertex_group_select()
+        func.mesh.extrude_edges_move()
+        func.transform.translate(value=(distb, distb, distb), constraint_axis=(False, False, True), constraint_orientation='VIEW')
+        #close faces
+        if self.my_bols == True:
+            func.mesh.select_all(action='SELECT')
+            func.mesh.edge_face_add()
+        context.scene.tool_settings.use_mesh_automerge = merge_op
+        func.object.editmode_toggle()
+        #add new gpencil to outer mesh (sorry cant find link command) and inherit draw mode from original
+        func.gpencil.data_add()
+        context.active_object.grease_pencil.draw_mode = getdm
+        #
+        context.scene.objects[inner].select = True
+        context.scene.objects.active = bpy.context.scene.objects[inner]
+        context.active_object.grease_pencil.clear()
+        if self.gpurge == True:
+            for oldsel in bpy.context.selected_objects:
+                context.scene.objects[oldsel.name].grease_pencil.user_clear() 
+        func.boolean.separate()
+        #delete inner/outer
+        if self.trimgeom == "Inner":
+            func.object.select_all(action='DESELECT')
+            context.scene.objects[inner].select = True
+            context.scene.objects.active = bpy.context.scene.objects[inner]
+            func.object.delete(use_global=False)
+            #
+            context.scene.objects[outer].select = True
+            context.scene.objects.active = bpy.context.scene.objects[outer]
+            func.object.origin_set(type='ORIGIN_GEOMETRY')
+        if self.trimgeom == "Outer":
+            func.object.select_all(action='DESELECT')
+            context.scene.objects[outer].select = True
+            context.scene.objects.active = bpy.context.scene.objects[outer]
+            func.object.delete(use_global=False)
+            #
+            context.scene.objects[inner].select = True
+            context.scene.objects.active = bpy.context.scene.objects[inner]
+        if self.trimgeom == "None":
+            context.scene.objects[inner].select = True
+            context.scene.objects[outer].select = True
+            if self.gpurge == True:
+                for oldsel in bpy.context.selected_objects:
+                    context.scene.objects[oldsel.name].grease_pencil.user_clear()            
+        return {'FINISHED'}
+
+class SymmetrizeBoolMesh(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "boolean.grease_symm"
+    bl_label = "Bool Mesh Symm Function"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    symm_int = bpy.props.FloatProperty(name="Threshold", min = 0.0001, max = 1, default = .001)       
+    
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH' or context.active_object is not None and context.active_object.mode == 'VERTEX_PAINT'
+
+    def execute(self, context):
+        func = bpy.ops
+        wm = context.window_manager
+        mode_curr = context.active_object.mode
+        func.object.editmode_toggle()
+        func.mesh.select_all(action='SELECT')
+        func.mesh.symmetrize(direction = wm.bolsymm, threshold= self.symm_int)
+        func.mesh.remove_doubles()
+        func.object.editmode_toggle()
+        if mode_curr == 'VERTEX_PAINT':
+            func.object.mode_set(mode='VERTEX_PAINT')
+        return {'FINISHED'}
         
+class PurgeAllPencils(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "boolean.purge_pencils"
+    bl_label = "Clears all grease pencil user data in the scene"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        if not context.scene.grease_pencil == None:
+            context.scene.grease_pencil.user_clear()
+        for obj in context.scene.objects:
+            if not context.scene.objects[obj.name].grease_pencil == None:
+                context.scene.objects[obj.name].grease_pencil.user_clear() 
+        return {'FINISHED'}   
+		
 class RemeshBooleanPanel(bpy.types.Panel):
     """UI panel for the Remesh and Boolean buttons"""
     bl_label = "Sculpt Tools"
@@ -433,7 +606,7 @@ class RemeshBooleanPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-
+        edit = context.user_preferences.edit
         wm = context.window_manager
         
         row = layout.row(align=True)
@@ -469,6 +642,22 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row6 = layout.row(align=True)
         row6.alignment = 'EXPAND'
         row6.operator("boolean.double_sided_off", text="Double Sided Off")
+		
+        box = layout.box().column(align=True)
+        box.operator("boolean.grease_trim", text='Grease Cut')
+        boxrow = box.row(align=True)
+        boxrow.operator("boolean.grease_symm", text='Symmetry')
+        boxrow.prop(wm, "bolsymm", text="")
+        box = layout.box().column(align=True)
+        box.prop(wm, "g_settings", text="Show Grease Pencil Settings")        
+        if wm.g_settings == True: 
+            box.prop(edit, "grease_pencil_manhattan_distance", text="Manhattan Distance")
+            box.prop(edit, "grease_pencil_euclidean_distance", text="Euclidean Distance")
+            box.prop(edit, "use_grease_pencil_smooth_stroke", text="Smooth Stroke")
+            box.prop(edit, "use_grease_pencil_simplify_stroke", text="Simplify Stroke")
+            box.separator()                                         
+            box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
+		
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -529,6 +718,17 @@ def register():
     bpy.types.WindowManager.remeshDepthInt = IntProperty(
     min = 2, max = 10,
     default = 4)
+	
+    bpy.types.WindowManager.g_settings = BoolProperty(default=False)
+
+    bpy.types.WindowManager.bolsymm = EnumProperty(name="",
+                     items = (("NEGATIVE_X","-X to +X",""),
+                              ("POSITIVE_X","+X to -X",""),
+                              ("NEGATIVE_Y","-Y to +Y",""),
+                              ("POSITIVE_Y","+Y to -Y",""),
+                              ("NEGATIVE_Z","-Z to +Z",""),
+                              ("POSITIVE_Z","+Z to -Z","")),                                                                                           
+                     default = "NEGATIVE_X")
     
 def unregister():
     bpy.utils.unregister_module(__name__)
