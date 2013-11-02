@@ -419,7 +419,7 @@ class DoubleSidedOffOperator(bpy.types.Operator):
         return {'FINISHED'}
 		
 class GreaseTrim(bpy.types.Operator):
-    """Tooltip"""
+    """Cuts the selected object along the grease pencil stroke"""
     bl_idname = "boolean.grease_trim"
     bl_label = "Grease Cut"
     bl_options = {'REGISTER', 'UNDO'}
@@ -555,7 +555,7 @@ class GreaseTrim(bpy.types.Operator):
         return {'FINISHED'}
 
 class SymmetrizeBoolMesh(bpy.types.Operator):
-    """Tooltip"""
+    """Copies one side of the mesh to the other along the chosen axis"""
     bl_idname = "boolean.grease_symm"
     bl_label = "Bool Mesh Symm Function"
     bl_options = {'REGISTER', 'UNDO'}
@@ -580,7 +580,7 @@ class SymmetrizeBoolMesh(bpy.types.Operator):
         return {'FINISHED'}
         
 class PurgeAllPencils(bpy.types.Operator):
-    """Tooltip"""
+    """Removes all Grease Pencil Layers"""
     bl_idname = "boolean.purge_pencils"
     bl_label = "Clears all grease pencil user data in the scene"
     bl_options = {'REGISTER', 'UNDO'}
@@ -609,55 +609,66 @@ class RemeshBooleanPanel(bpy.types.Panel):
         edit = context.user_preferences.edit
         wm = context.window_manager
         
-        row = layout.row(align=True)
-        row.alignment = 'EXPAND'
+        row_rem = layout.row(align=True)
+        row_rem.alignment = 'EXPAND'
 
         try:
-            row.operator("sculpt.remesh", text='Remesh')
-            row.prop(wm, 'remeshDepthInt', text="Depth")
+            row_rem.operator("sculpt.remesh", text='Remesh')
+            row_rem.prop(wm, 'remeshDepthInt', text="Depth")
         except:
             pass
+            
+        layout.separator()
 
-        row2 = layout.row(align=True)
-        row2.alignment = 'EXPAND'
-        row2.operator("boolean.union", text="Union")
-        row2.operator("boolean.difference", text="Difference")
-        row2.operator("boolean.intersect", text="Intersect")
+        row_b1 = layout.row(align=True)
+        row_b1.alignment = 'EXPAND'
+        row_b1.operator("boolean.union", text="Union")
+        row_b1.operator("boolean.difference", text="Difference")
+        row_b1.operator("boolean.intersect", text="Intersect")
         
-        row3 = layout.row(align=True)
-        row3.alignment = 'EXPAND'
+        row_b2 = layout.row(align=True)
+        row_b2.alignment = 'EXPAND'
         
-        row3.operator("boolean.separate", text="Separate")
-        row3.operator("boolean.clone", text="Clone")
+        row_b2.operator("boolean.separate", text="Separate")
+        row_b2.operator("boolean.clone", text="Clone")
         
-        row4 = layout.row(align=True)
-        row4.alignment = 'EXPAND'
-        row4.operator("boolean.mod_apply", text="Apply Mods")
-        row4.operator("boolean.mod_xmirror", text="X-Mirror")
+        layout.separator()
         
-        row5 = layout.row(align=True)
-        row5.alignment = 'EXPAND'
-        row5.operator("boolean.mesh_deform", text="Mesh Deform")
+        row_ma = layout.row(align=True)
+        row_ma.alignment = 'EXPAND'
+        row_ma.operator("boolean.mod_apply", text="Apply Mods")
+#        row_ma.operator("boolean.mod_xmirror", text="X-Mirror")
         
-        row6 = layout.row(align=True)
-        row6.alignment = 'EXPAND'
-        row6.operator("boolean.double_sided_off", text="Double Sided Off")
-		
+        row_md = layout.row(align=True)
+        row_md.alignment = 'EXPAND'
+        row_md.operator("boolean.mesh_deform", text="Mesh Deform")
+        
+        row_dso = layout.row(align=True)
+        row_dso.alignment = 'EXPAND'
+        row_dso.operator("boolean.double_sided_off", text="Double Sided Off")
+        
+        row_sym = layout.row(align=True)
+        row_sym.operator("boolean.grease_symm", text='Symmetrize')
+        row_sym.prop(wm, "bolsymm", text="")
+        
+        layout.separator()
+        
+        row_gt = layout.row(align=True)
+        row_gt.operator("boolean.grease_trim", text='Grease Cut')
+        
         box = layout.box().column(align=True)
-        box.operator("boolean.grease_trim", text='Grease Cut')
-        boxrow = box.row(align=True)
-        boxrow.operator("boolean.grease_symm", text='Symmetry')
-        boxrow.prop(wm, "bolsymm", text="")
-        box = layout.box().column(align=True)
-        box.prop(wm, "g_settings", text="Show Grease Pencil Settings")        
-        if wm.g_settings == True: 
+        if wm.expand_grease_settings == False: 
+            box.prop(wm, "expand_grease_settings", icon="TRIA_RIGHT", icon_only=True, text=" Grease Pencil Settings", emboss=False)
+        else:
+            box.prop(wm, "expand_grease_settings", icon="TRIA_DOWN", icon_only=True, text=" Grease Pencil Settings", emboss=False)
+            box.separator()
             box.prop(edit, "grease_pencil_manhattan_distance", text="Manhattan Distance")
             box.prop(edit, "grease_pencil_euclidean_distance", text="Euclidean Distance")
-            box.prop(edit, "use_grease_pencil_smooth_stroke", text="Smooth Stroke")
-            box.prop(edit, "use_grease_pencil_simplify_stroke", text="Simplify Stroke")
+            boxrow = box.row(align=True)
+            boxrow.prop(edit, "use_grease_pencil_smooth_stroke", text="Smooth")
+            boxrow.prop(edit, "use_grease_pencil_simplify_stroke", text="Simplify")
             box.separator()                                         
             box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
-		
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -688,12 +699,15 @@ class BooleanOpsMenu(bpy.types.Menu):
         layout.operator("boolean.mod_apply",
                         text="Apply Modifiers",
                         icon='MODIFIER')
-        layout.operator("boolean.mod_xmirror",
-                        text="X-Mirror",
+        layout.operator("boolean.grease_symm",
+                        text="Symmetrize",
                         icon='MOD_MIRROR')
         layout.operator("boolean.mesh_deform",
                         text="Mesh Deform",
                         icon='MOD_MESHDEFORM')
+        layout.operator("boolean.grease_trim",
+                        text="Grease Cut",
+                        icon='SCULPTMODE_HLT')
         
 
 def register():
@@ -719,7 +733,7 @@ def register():
     min = 2, max = 10,
     default = 4)
 	
-    bpy.types.WindowManager.g_settings = BoolProperty(default=False)
+    bpy.types.WindowManager.expand_grease_settings = BoolProperty(default=False)
 
     bpy.types.WindowManager.bolsymm = EnumProperty(name="",
                      items = (("NEGATIVE_X","-X to +X",""),
