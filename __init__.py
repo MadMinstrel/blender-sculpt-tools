@@ -66,7 +66,54 @@ def objDuplicate(obj):
 #        return {'FINISHED'}
 #    
 
-
+class MaskExtractOperator(bpy.types.Operator):
+    """Extracts the masked area into a new mesh"""
+    bl_idname = "boolean.mask_extract"
+    bl_label = "Mask Extract"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and context.active_object.mode == 'SCULPT'
+    
+    def draw(self, context): 
+        if context.active_object.mode != 'SCULPT':   
+            wm = context.window_manager
+            layout = self.layout
+            layout.prop(wm, "extractDepthFloat", text="Depth")
+            layout.prop(wm, "extractSmoothIterationsInt", text="Depth")
+    
+    def execute(self, context):
+        wm = context.window_manager
+        activeObj = context.active_object
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.normals_make_consistent();
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='SCULPT')
+        bpy.ops.paint.hide_show(action='HIDE', area='MASKED')
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_mode(type="FACE")
+        bpy.ops.mesh.reveal()
+        bpy.ops.mesh.duplicate_move(MESH_OT_duplicate=None, TRANSFORM_OT_translate=None)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action = 'DESELECT')
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.separate(type="SELECTED")
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.context.scene.objects.active = context.selected_objects[0];
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.region_to_loop()
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.normals_make_consistent();
+        bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        # bpy.context.scene.objects.active = activeObj
+        # bpy.ops.object.mode_set(mode='SCULPT')
+        return {'FINISHED'}
 
 class BooleanMeshDeformOperator(bpy.types.Operator):
     '''Binds a deforming mesh to the object'''
@@ -132,7 +179,6 @@ class RemeshOperator(bpy.types.Operator):
             wm = context.window_manager
             layout = self.layout
             layout.prop(wm, "remeshDepthInt", text="Depth")
-        
         
     def execute(self, context):
         # add a smooth remesh modifier
@@ -608,7 +654,6 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_ma = layout.row(align=True)
         row_ma.alignment = 'EXPAND'
         row_ma.operator("boolean.mod_apply", text="Apply Mods")
-#        row_ma.operator("boolean.mod_xmirror", text="X-Mirror")
         
         row_md = layout.row(align=True)
         row_md.alignment = 'EXPAND'
@@ -640,6 +685,10 @@ class RemeshBooleanPanel(bpy.types.Panel):
             boxrow.prop(edit, "use_grease_pencil_simplify_stroke", text="Simplify")
             box.separator()                                         
             box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
+        
+        row_me = layout.row(align=True)
+        row_me.alignment = 'EXPAND'
+        row_me.operator("boolean.mask_extract", text="Mask Extract")
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -700,10 +749,12 @@ def register():
         
         kmi = km.keymap_items.new('sculpt.dynamic_topology_toggle', 'D', 'PRESS', shift = True)
         
-    bpy.types.WindowManager.remeshDepthInt = IntProperty(
-    min = 2, max = 10,
-    default = 4)
-	
+    bpy.types.WindowManager.remeshDepthInt = IntProperty(min = 2, max = 10, default = 4)
+
+    bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
+
+    bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 10, default = 4)
+    
     bpy.types.WindowManager.expand_grease_settings = BoolProperty(default=False)
 
     bpy.types.WindowManager.bolsymm = EnumProperty(name="",
