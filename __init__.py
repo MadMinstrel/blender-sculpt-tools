@@ -86,6 +86,14 @@ class MaskExtractOperator(bpy.types.Operator):
     def execute(self, context):
         wm = context.window_manager
         activeObj = context.active_object
+        if  2>len(bpy.context.selected_objects)>0 and \
+            context.selected_objects[0] != activeObj and \
+            context.selected_objects[0].name.startswith("Extracted."):
+            rem = context.selected_objects[0]
+            remname = rem.data.name
+            bpy.data.scenes[0].objects.unlink(rem)
+            bpy.data.objects.remove(rem)
+            bpy.data.meshes.remove(bpy.data.meshes[remname])
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent();
@@ -102,14 +110,15 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.mesh.separate(type="SELECTED")
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = context.selected_objects[0];
+        bpy.context.scene.objects.active.name = "Extracted." + bpy.context.scene.objects.active.name
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.region_to_loop()
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.normals_make_consistent();
         bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+        bpy.ops.mesh.normals_make_consistent();
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = activeObj
         bpy.ops.object.mode_set(mode='SCULPT')
@@ -686,9 +695,11 @@ class RemeshBooleanPanel(bpy.types.Panel):
             box.separator()                                         
             box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
         
-        row_me = layout.row(align=True)
+        row_me = layout.column(align=True)
         row_me.alignment = 'EXPAND'
         row_me.operator("boolean.mask_extract", text="Mask Extract")
+        row_me.prop(wm, "extractDepthFloat", text="Depth")
+        row_me.prop(wm, "extractSmoothIterationsInt", text="Smooth")
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -753,7 +764,7 @@ def register():
 
     bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
 
-    bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 10, default = 4)
+    bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 50, default = 4)
     
     bpy.types.WindowManager.expand_grease_settings = BoolProperty(default=False)
 
