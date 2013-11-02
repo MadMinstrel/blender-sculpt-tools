@@ -77,11 +77,11 @@ class MaskExtractOperator(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'SCULPT'
     
     def draw(self, context): 
-        if context.active_object.mode != 'SCULPT':   
-            wm = context.window_manager
-            layout = self.layout
-            layout.prop(wm, "extractDepthFloat", text="Depth")
-            layout.prop(wm, "extractSmoothIterationsInt", text="Depth")
+        #if context.active_object.mode != 'SCULPT':   
+        wm = context.window_manager
+        layout = self.layout
+        layout.prop(wm, "extractDepthFloat", text="Depth")
+        layout.prop(wm, "extractSmoothIterationsInt", text="Smooth Iterations")
     
     def execute(self, context):
         wm = context.window_manager
@@ -111,8 +111,8 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.mesh.normals_make_consistent();
         bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
         bpy.ops.object.mode_set(mode='OBJECT')
-        # bpy.context.scene.objects.active = activeObj
-        # bpy.ops.object.mode_set(mode='SCULPT')
+        bpy.context.scene.objects.active = activeObj
+        bpy.ops.object.mode_set(mode='SCULPT')
         return {'FINISHED'}
 
 class BooleanMeshDeformOperator(bpy.types.Operator):
@@ -779,6 +779,11 @@ def unregister():
                     break
     try:
         del bpy.types.WindowManager.remeshDepthInt
+        del bpy.types.WindowManager.expand_grease_settings
+        del bpy.types.WindowManager.extractDepthFloat
+        del bpy.types.WindowManager.extractSmoothIterationsInt
+        del bpy.types.WindowManager.bolsymm
+        
     except:
         pass
 
