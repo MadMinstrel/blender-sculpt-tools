@@ -394,13 +394,22 @@ class GreaseTrim(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'
 
     def execute(self, context):
+        func = bpy.ops
         #get old cam
         if context.scene.camera == None:
             self.report({'WARNING'}, "Set camera first!")
             return {'FINISHED'}           
-        func = bpy.ops
         old_cam = bpy.context.scene.camera.name
         merge_op = context.scene.tool_settings.use_mesh_automerge
+        #get orignal object and cursor location
+        orgx = context.active_object.location[0]
+        orgy = context.active_object.location[1]
+        orgz = context.active_object.location[2]
+        curx = context.space_data.cursor_location[0]
+        cury = context.space_data.cursor_location[1]
+        curz = context.space_data.cursor_location[2]
+        #
+        func.view3d.snap_cursor_to_selected()
         #create new cam
         inner = context.active_object.name
         func.object.empty_add(type='PLAIN_AXES', view_align=False, location=(0, 0, 0))
@@ -493,7 +502,7 @@ class GreaseTrim(bpy.types.Operator):
             #
             context.scene.objects[outer].select = True
             context.scene.objects.active = bpy.context.scene.objects[outer]
-            func.object.origin_set(type='ORIGIN_GEOMETRY')
+            func.object.origin_set(type='ORIGIN_CURSOR')
         if self.trimgeom == "Outer":
             func.object.select_all(action='DESELECT')
             context.scene.objects[outer].select = True
@@ -502,12 +511,18 @@ class GreaseTrim(bpy.types.Operator):
             #
             context.scene.objects[inner].select = True
             context.scene.objects.active = bpy.context.scene.objects[inner]
+            func.object.origin_set(type='ORIGIN_CURSOR')
         if self.trimgeom == "None":
             context.scene.objects[inner].select = True
             context.scene.objects[outer].select = True
             if self.gpurge == True:
                 for oldsel in bpy.context.selected_objects:
-                    context.scene.objects[oldsel.name].grease_pencil.user_clear()            
+                    context.scene.objects[oldsel.name].grease_pencil.user_clear()
+            func.object.origin_set(type='ORIGIN_CURSOR')
+        #return cursor location to original
+        context.space_data.cursor_location[0] = curx
+        context.space_data.cursor_location[1] = cury
+        context.space_data.cursor_location[2] = curz           
         return {'FINISHED'}
 
 class SymmetrizeBoolMesh(bpy.types.Operator):
