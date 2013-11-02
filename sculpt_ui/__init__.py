@@ -117,50 +117,6 @@ class ModApplyOperator(bpy.types.Operator):
         bpy.context.scene.objects.active = activeObj
         return {'FINISHED'}
     
-class XMirrorOperator(bpy.types.Operator):
-    '''Applies an X-axis mirror modifier to the selected object. If more objects are selected, they will be mirrored around the active object.'''
-    bl_idname = "boolean.mod_xmirror"
-    bl_label = "X-Mirror"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.active_object is not None
-    
-    def execute(self, context):
-        activeObj = context.active_object
-        if len(bpy.context.selected_objects)>1 :
-            for SelectedObject in bpy.context.selected_objects :
-                if SelectedObject != activeObj :
-                    oldMode = SelectedObject.mode    
-
-                    bpy.context.scene.objects.active = SelectedObject
-
-                    bpy.ops.object.mode_set(mode='OBJECT')
-
-                    md = SelectedObject.modifiers.new('xmirror', 'MIRROR')
-                    md.mirror_object = activeObj
-
-
-
-                    bpy.ops.object.mode_set(mode=oldMode)
-                    bpy.context.scene.objects.active = activeObj
-                    
-        #if there's only one object selected, apply straight fo the active obj.
-        if len(bpy.context.selected_objects)==1 :
-
-            oldMode = activeObj.mode    
-
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-            md = activeObj.modifiers.new('xmirror', 'MIRROR')
-
-            bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
-
-            bpy.ops.object.mode_set(mode=oldMode)
-                
-        return {'FINISHED'}
-    
 class RemeshOperator(bpy.types.Operator):
     '''Remesh an object at the given octree depth'''
     bl_idname = "sculpt.remesh"
@@ -417,7 +373,7 @@ class DoubleSidedOffOperator(bpy.types.Operator):
         for mesh in bpy.data.meshes:
             mesh.show_double_sided = False
         return {'FINISHED'}
-		
+
 class GreaseTrim(bpy.types.Operator):
     """Cuts the selected object along the grease pencil stroke"""
     bl_idname = "boolean.grease_trim"
@@ -578,7 +534,7 @@ class SymmetrizeBoolMesh(bpy.types.Operator):
         if mode_curr == 'VERTEX_PAINT':
             func.object.mode_set(mode='VERTEX_PAINT')
         return {'FINISHED'}
-        
+
 class PurgeAllPencils(bpy.types.Operator):
     """Removes all Grease Pencil Layers"""
     bl_idname = "boolean.purge_pencils"
@@ -596,7 +552,7 @@ class PurgeAllPencils(bpy.types.Operator):
             if not context.scene.objects[obj.name].grease_pencil == None:
                 context.scene.objects[obj.name].grease_pencil.user_clear() 
         return {'FINISHED'}   
-		
+
 class RemeshBooleanPanel(bpy.types.Panel):
     """UI panel for the Remesh and Boolean buttons"""
     bl_label = "Sculpt Tools"
