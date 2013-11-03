@@ -77,7 +77,6 @@ class MaskExtractOperator(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'SCULPT'
     
     def draw(self, context): 
-        #if context.active_object.mode != 'SCULPT':   
         wm = context.window_manager
         layout = self.layout
         layout.prop(wm, "extractStyleEnum", text="Style")
@@ -115,7 +114,11 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action = 'DESELECT')
         bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.separate(type="SELECTED")
+        try:
+            bpy.ops.mesh.separate(type="SELECTED")
+        except:
+            bpy.ops.object.mode_set(mode='SCULPT')
+            return {'FINISHED'}
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = context.selected_objects[0];
         bpy.context.scene.objects.active.name = "Extracted." + bpy.context.scene.objects.active.name
