@@ -118,13 +118,27 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.context.scene.objects.active = context.selected_objects[0];
         bpy.context.scene.objects.active.name = "Extracted." + bpy.context.scene.objects.active.name
         bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.region_to_loop()
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
-        bpy.ops.mesh.normals_make_consistent();
+
+        if wm.extractStyleEnum == 'SOLID':
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
+            bpy.ops.mesh.select_all(action='SELECT')
+            if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            bpy.ops.mesh.normals_make_consistent();
+
+        elif wm.extractStyleEnum == 'SINGLE':
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat/1000, use_select_inset=False)
+            bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat-(wm.extractDepthFloat/1000), use_select_inset=False)
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            bpy.ops.mesh.normals_make_consistent();
+
+        elif wm.extractStyleEnum == 'FLAT':
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat)
+            if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = activeObj
         if automerge:
@@ -710,6 +724,7 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_me.operator("boolean.mask_extract", text="Mask Extract")
         row_me.prop(wm, "extractDepthFloat", text="Depth")
         row_me.prop(wm, "extractSmoothIterationsInt", text="Smooth")
+        row_me.prop(wm, "extractStyleEnum", text="Style")
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -778,6 +793,12 @@ def register():
     bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
 
     bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 50, default = 4)
+    
+    bpy.types.WindowManager.extractStyleEnum = EnumProperty(name="Extract style",
+                     items = (("SOLID","Solid",""),
+                              ("SINGLE","Single Sided",""),
+                              ("FLAT","Flat","")),
+                     default = "FLAT")
     
     bpy.types.WindowManager.expand_grease_settings = BoolProperty(default=False)
 
