@@ -80,6 +80,7 @@ class MaskExtractOperator(bpy.types.Operator):
         #if context.active_object.mode != 'SCULPT':   
         wm = context.window_manager
         layout = self.layout
+        layout.prop(wm, "extractStyleEnum", text="Style")
         layout.prop(wm, "extractDepthFloat", text="Depth")
         layout.prop(wm, "extractOffsetFloat", text="Offset")
         layout.prop(wm, "extractSmoothIterationsInt", text="Smooth Iterations")
@@ -147,7 +148,7 @@ class MaskExtractOperator(bpy.types.Operator):
 
         elif wm.extractStyleEnum == 'FLAT':
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat+wm.extractOffsetFloat)
+            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat-wm.extractOffsetFloat)
             if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -730,13 +731,16 @@ class RemeshBooleanPanel(bpy.types.Panel):
         
         layout.separator()
         
+        row_me_oprow = layout.row(align=True)
+        row_me_oprow.alignment = 'EXPAND'
+        row_me_oprow.operator("boolean.mask_extract", text="Extract")
+        row_me_oprow.prop(wm, "extractStyleEnum", text="")
+        
         row_me = layout.column(align=True)
         row_me.alignment = 'EXPAND'
-        row_me.operator("boolean.mask_extract", text="Mask Extract")
         row_me.prop(wm, "extractDepthFloat", text="Depth")
         row_me.prop(wm, "extractOffsetFloat", text="Offset")
         row_me.prop(wm, "extractSmoothIterationsInt", text="Smooth")
-        row_me.prop(wm, "extractStyleEnum", text="Style")
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
@@ -805,13 +809,13 @@ def register():
     bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
     bpy.types.WindowManager.extractOffsetFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.0)
 
-    bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 50, default = 4)
+    bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 50, default = 5)
     
     bpy.types.WindowManager.extractStyleEnum = EnumProperty(name="Extract style",
                      items = (("SOLID","Solid",""),
                               ("SINGLE","Single Sided",""),
                               ("FLAT","Flat","")),
-                     default = "FLAT")
+                     default = "SOLID")
     
     bpy.types.WindowManager.expand_grease_settings = BoolProperty(default=False)
 
