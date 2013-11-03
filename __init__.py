@@ -96,12 +96,25 @@ class MaskExtractOperator(bpy.types.Operator):
             bpy.data.scenes[0].objects.unlink(rem)
             bpy.data.objects.remove(rem)
             bpy.data.meshes.remove(bpy.data.meshes[remname])
+        
+        try:
+            if activeObj.modifiers["Multires"]:
+                use_multires = True
+                objCopy = objDuplicate(activeObj)
+                bpy.context.scene.objects.active = objCopy
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.ops.boolean.mod_apply()
+        except:
+            use_multires = False
+            pass
+            
         bpy.ops.object.mode_set(mode='EDIT')
         if context.scene.tool_settings.use_mesh_automerge:
             automerge = True
             bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = False
         else:
             automerge = False
+
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent();
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -114,17 +127,25 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action = 'DESELECT')
         bpy.ops.object.mode_set(mode='EDIT')
-        try:
-            bpy.ops.mesh.separate(type="SELECTED")
-        except:
-            bpy.ops.object.mode_set(mode='SCULPT')
-            return {'FINISHED'}
+        if use_multires == True:
+            bpy.ops.mesh.select_all(action='INVERT')
+            bpy.ops.mesh.delete(type='FACE')
+            bpy.context.scene.objects.active = objCopy;
+        else:
+            try:
+                bpy.ops.mesh.separate(type="SELECTED")
+                bpy.context.scene.objects.active = context.selected_objects[0];
+            except:
+                bpy.ops.object.mode_set(mode='SCULPT')
+                bpy.ops.paint.hide_show(action='SHOW', area='ALL')
+                return {'FINISHED'}
         bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.context.scene.objects.active = context.selected_objects[0];
+        
         bpy.context.scene.objects.active.name = "Extracted." + bpy.context.scene.objects.active.name
         bpy.ops.object.mode_set(mode='EDIT')
 
         if wm.extractStyleEnum == 'SOLID':
+            bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
             bpy.ops.mesh.region_to_loop()
@@ -137,6 +158,7 @@ class MaskExtractOperator(bpy.types.Operator):
             bpy.ops.mesh.normals_make_consistent();
 
         elif wm.extractStyleEnum == 'SINGLE':
+            bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
             bpy.ops.mesh.region_to_loop()
@@ -150,14 +172,18 @@ class MaskExtractOperator(bpy.types.Operator):
             bpy.ops.mesh.normals_make_consistent();
 
         elif wm.extractStyleEnum == 'FLAT':
+            bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat-wm.extractOffsetFloat)
             if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             
         bpy.ops.object.mode_set(mode='OBJECT')
+        if use_multires:
+            bpy.ops.object.select_pattern(pattern=context.active_object.name, case_sensitive=True, extend=False)
         bpy.context.scene.objects.active = activeObj
         if automerge:
             bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = True
+
         bpy.ops.object.mode_set(mode='SCULPT')
         return {'FINISHED'}
 
