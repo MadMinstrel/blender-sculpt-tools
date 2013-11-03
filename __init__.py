@@ -81,6 +81,7 @@ class MaskExtractOperator(bpy.types.Operator):
         wm = context.window_manager
         layout = self.layout
         layout.prop(wm, "extractDepthFloat", text="Depth")
+        layout.prop(wm, "extractOffsetFloat", text="Offset")
         layout.prop(wm, "extractSmoothIterationsInt", text="Smooth Iterations")
     
     def execute(self, context):
@@ -121,12 +122,22 @@ class MaskExtractOperator(bpy.types.Operator):
 
         if wm.extractStyleEnum == 'SOLID':
             bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
+            bpy.ops.mesh.region_to_loop()
+            bpy.ops.mesh.select_all(action='INVERT')
+            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
             bpy.ops.mesh.select_all(action='SELECT')
             if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             bpy.ops.mesh.normals_make_consistent();
 
         elif wm.extractStyleEnum == 'SINGLE':
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
+            bpy.ops.mesh.region_to_loop()
+            bpy.ops.mesh.select_all(action='INVERT')
+            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat/1000, use_select_inset=False)
             bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat-(wm.extractDepthFloat/1000), use_select_inset=False)
@@ -136,7 +147,7 @@ class MaskExtractOperator(bpy.types.Operator):
 
         elif wm.extractStyleEnum == 'FLAT':
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat)
+            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat+wm.extractOffsetFloat)
             if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -723,6 +734,7 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_me.alignment = 'EXPAND'
         row_me.operator("boolean.mask_extract", text="Mask Extract")
         row_me.prop(wm, "extractDepthFloat", text="Depth")
+        row_me.prop(wm, "extractOffsetFloat", text="Offset")
         row_me.prop(wm, "extractSmoothIterationsInt", text="Smooth")
         row_me.prop(wm, "extractStyleEnum", text="Style")
         
@@ -791,6 +803,7 @@ def register():
     bpy.types.WindowManager.remeshDepthInt = IntProperty(min = 2, max = 10, default = 4)
 
     bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
+    bpy.types.WindowManager.extractOffsetFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.0)
 
     bpy.types.WindowManager.extractSmoothIterationsInt = IntProperty(min = 0, max = 50, default = 4)
     
