@@ -86,6 +86,7 @@ class MaskExtractOperator(bpy.types.Operator):
     def execute(self, context):
         wm = context.window_manager
         activeObj = context.active_object
+        
         if  2>len(bpy.context.selected_objects)>0 and \
             context.selected_objects[0] != activeObj and \
             context.selected_objects[0].name.startswith("Extracted."):
@@ -95,6 +96,11 @@ class MaskExtractOperator(bpy.types.Operator):
             bpy.data.objects.remove(rem)
             bpy.data.meshes.remove(bpy.data.meshes[remname])
         bpy.ops.object.mode_set(mode='EDIT')
+        if context.scene.tool_settings.use_mesh_automerge:
+            automerge = True
+            bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = False
+        else:
+            automerge = False
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent();
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -121,6 +127,8 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.mesh.normals_make_consistent();
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = activeObj
+        if automerge:
+            bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = True
         bpy.ops.object.mode_set(mode='SCULPT')
         return {'FINISHED'}
 
@@ -695,6 +703,8 @@ class RemeshBooleanPanel(bpy.types.Panel):
             box.separator()                                         
             box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
         
+        layout.separator()
+        
         row_me = layout.column(align=True)
         row_me.alignment = 'EXPAND'
         row_me.operator("boolean.mask_extract", text="Mask Extract")
@@ -739,6 +749,9 @@ class BooleanOpsMenu(bpy.types.Menu):
         layout.operator("boolean.grease_trim",
                         text="Grease Cut",
                         icon='SCULPTMODE_HLT')
+        layout.operator("boolean.mask_extract",
+                        text="Mask Extract",
+                        icon='RETOPO')
         
 
 def register():
