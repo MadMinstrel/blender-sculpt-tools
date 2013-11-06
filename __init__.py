@@ -88,6 +88,9 @@ class MaskExtractOperator(bpy.types.Operator):
         wm = context.window_manager
         activeObj = context.active_object
         
+        # This is a hackish way to support redo functionality despite sculpt mode having its own undo system.
+        # The set of conditions here is not something the user can create manually from the UI.
+        # Unfortunately I haven't found a way to make Undo itself work
         if  2>len(bpy.context.selected_objects)>0 and \
             context.selected_objects[0] != activeObj and \
             context.selected_objects[0].name.startswith("Extracted."):
@@ -95,8 +98,10 @@ class MaskExtractOperator(bpy.types.Operator):
             remname = rem.data.name
             bpy.data.scenes[0].objects.unlink(rem)
             bpy.data.objects.remove(rem)
+            # remove mesh to prevent memory being cluttered up with hundreds of high-poly objects
             bpy.data.meshes.remove(bpy.data.meshes[remname])
         
+        # For multires we need to copy the object and apply the modifiers
         try:
             if activeObj.modifiers["Multires"]:
                 use_multires = True
@@ -109,12 +114,15 @@ class MaskExtractOperator(bpy.types.Operator):
             pass
             
         bpy.ops.object.mode_set(mode='EDIT')
+        
+        # Automerge will collapse the mesh so we need it off.
         if context.scene.tool_settings.use_mesh_automerge:
             automerge = True
             bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = False
         else:
             automerge = False
 
+        # Until python can read sculpt mask data properly we need to rely on the hiding trick
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent();
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -127,6 +135,8 @@ class MaskExtractOperator(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action = 'DESELECT')
         bpy.ops.object.mode_set(mode='EDIT')
+        
+        # For multires we already have a copy, so lets use that instead of separate.
         if use_multires == True:
             bpy.ops.mesh.select_all(action='INVERT')
             bpy.ops.mesh.delete(type='FACE')
@@ -141,16 +151,18 @@ class MaskExtractOperator(bpy.types.Operator):
                 return {'FINISHED'}
         bpy.ops.object.mode_set(mode='OBJECT')
         
+        # Rename the object for disambiguation
         bpy.context.scene.objects.active.name = "Extracted." + bpy.context.scene.objects.active.name
         bpy.ops.object.mode_set(mode='EDIT')
-
+        
+        # Solid mode should create a two-sided mesh
         if wm.extractStyleEnum == 'SOLID':
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
+            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat) #offset
             bpy.ops.mesh.region_to_loop()
             bpy.ops.mesh.select_all(action='INVERT')
-            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt) #smooth everything but border edges to sanitize normals
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.solidify(thickness = -wm.extractDepthFloat)
             bpy.ops.mesh.select_all(action='SELECT')
@@ -160,11 +172,13 @@ class MaskExtractOperator(bpy.types.Operator):
         elif wm.extractStyleEnum == 'SINGLE':
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat)
+            bpy.ops.transform.shrink_fatten(value=-wm.extractOffsetFloat) #offset
             bpy.ops.mesh.region_to_loop()
             bpy.ops.mesh.select_all(action='INVERT')
-            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
+            bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt) #smooth everything but border edges to sanitize normals
             bpy.ops.mesh.select_all(action='SELECT')
+            # This is to create an extra loop and prevent the bottom vertices running up too far in smoothing
+            # Tried multiple ways to prevent this and this one seemed best
             bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat/1000, use_select_inset=False)
             bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat-(wm.extractDepthFloat/1000), use_select_inset=False)
             bpy.ops.mesh.select_all(action='SELECT')
@@ -174,16 +188,26 @@ class MaskExtractOperator(bpy.types.Operator):
         elif wm.extractStyleEnum == 'FLAT':
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat-wm.extractOffsetFloat)
+            # Offset doesn't make much sense for Flat mode, so let's add it to the depth to make it a single op.
+            bpy.ops.transform.shrink_fatten(value=-wm.extractDepthFloat-wm.extractOffsetFloat) 
             if wm.extractSmoothIterationsInt>0: bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
             
+        # clear mask on the extracted mesh
+        bpy.ops.object.mode_set(mode='SCULPT')
+        bpy.ops.paint.mask_flood_fill(mode='VALUE', value=0)
+        
         bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # make sure to recreate the odd selection situation for redo
         if use_multires:
             bpy.ops.object.select_pattern(pattern=context.active_object.name, case_sensitive=True, extend=False)
         bpy.context.scene.objects.active = activeObj
+        
+        # restore automerge
         if automerge:
             bpy.data.scenes[context.scene.name].tool_settings.use_mesh_automerge = True
 
+        # restore mode for original object
         bpy.ops.object.mode_set(mode='SCULPT')
         return {'FINISHED'}
 
@@ -512,7 +536,6 @@ class GreaseTrim(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'
 
     def execute(self, context):
-        func = bpy.ops
         #get old cam
         if context.scene.camera == None:
             self.report({'WARNING'}, "Set camera first!")
@@ -527,13 +550,13 @@ class GreaseTrim(bpy.types.Operator):
         cury = context.space_data.cursor_location[1]
         curz = context.space_data.cursor_location[2]
         #
-        func.view3d.snap_cursor_to_selected()
+        bpy.ops.view3d.snap_cursor_to_selected()
         #create new cam
         inner = context.active_object.name
-        func.object.empty_add(type='PLAIN_AXES', view_align=False, location=(0, 0, 0))
-        func.view3d.object_as_camera()
-        func.view3d.camera_to_view()
-        func.view3d.viewnumpad(type='CAMERA')
+        bpy.ops.object.empty_add(type='PLAIN_AXES', view_align=False, location=(0, 0, 0))
+        bpy.ops.view3d.object_as_camera()
+        bpy.ops.view3d.camera_to_view()
+        bpy.ops.view3d.viewnumpad(type='CAMERA')
         #use cam as cut plane angle and length
         camx = context.active_object.location[0]
         camy = context.active_object.location[1]
@@ -544,12 +567,12 @@ class GreaseTrim(bpy.types.Operator):
         if distf == 0 or distb == 0:
             self.report({'WARNING'}, "Error in operation!")
             return {'FINISHED'}
-        func.object.delete(use_global=False)
+        bpy.ops.object.delete(use_global=False)
         #restore cam
         context.scene.camera = bpy.data.objects[old_cam]
-        func.view3d.view_persportho()
+        bpy.ops.view3d.view_persportho()
         #
-        func.object.select_all(action='DESELECT')
+        bpy.ops.object.select_all(action='DESELECT')
         context.scene.objects[inner].select = True
         context.scene.objects.active = bpy.context.scene.objects[inner]
         #get draw mode of original mesh
@@ -567,41 +590,41 @@ class GreaseTrim(bpy.types.Operator):
             return {'FINISHED'}
         getdm = context.active_object.grease_pencil.draw_mode
         # transform grease to poly curve to mesh
-        func.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
+        bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
         context.active_object.select = False
         context.scene.objects.active = bpy.context.scene.objects[bpy.context.selected_objects[0].name]
-        func.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
         #curve functions (cyclic, smooth)
         if self.my_bols == True:
-            func.curve.cyclic_toggle()
-            func.curve.subdivide()
+            bpy.ops.curve.cyclic_toggle()
+            bpy.ops.curve.subdivide()
         for i in range(0, self.my_int):
-            func.curve.smooth()
+            bpy.ops.curve.smooth()
         #
-        func.object.editmode_toggle()
-        func.object.convert(target='MESH')
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.convert(target='MESH')
         outer = context.active_object.name
         #position generated cut plane on original object
-        func.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
         context.scene.tool_settings.use_mesh_automerge = False
-        func.mesh.select_all(action='SELECT')
-        func.object.vertex_group_add()
-        func.object.vertex_group_assign()
-        func.mesh.extrude_edges_move()
-        func.transform.translate(value=(distf, distf, distf), constraint_axis=(False, False, True), constraint_orientation='VIEW')
-        func.object.vertex_group_remove_from()
-        func.mesh.select_all(action='DESELECT')
-        func.object.vertex_group_select()
-        func.mesh.extrude_edges_move()
-        func.transform.translate(value=(distb, distb, distb), constraint_axis=(False, False, True), constraint_orientation='VIEW')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.object.vertex_group_add()
+        bpy.ops.object.vertex_group_assign()
+        bpy.ops.mesh.extrude_edges_move()
+        bpy.ops.transform.translate(value=(distf, distf, distf), constraint_axis=(False, False, True), constraint_orientation='VIEW')
+        bpy.ops.object.vertex_group_remove_from()
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.vertex_group_select()
+        bpy.ops.mesh.extrude_edges_move()
+        bpy.ops.transform.translate(value=(distb, distb, distb), constraint_axis=(False, False, True), constraint_orientation='VIEW')
         #close faces
         if self.my_bols == True:
-            func.mesh.select_all(action='SELECT')
-            func.mesh.edge_face_add()
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.edge_face_add()
         context.scene.tool_settings.use_mesh_automerge = merge_op
-        func.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
         #add new gpencil to outer mesh (sorry cant find link command) and inherit draw mode from original
-        func.gpencil.data_add()
+        bpy.ops.gpencil.data_add()
         context.active_object.grease_pencil.draw_mode = getdm
         #
         context.scene.objects[inner].select = True
@@ -610,33 +633,33 @@ class GreaseTrim(bpy.types.Operator):
         if self.gpurge == True:
             for oldsel in bpy.context.selected_objects:
                 context.scene.objects[oldsel.name].grease_pencil.user_clear() 
-        func.boolean.separate()
+        bpy.ops.boolean.separate()
         #delete inner/outer
         if self.trimgeom == "Inner":
-            func.object.select_all(action='DESELECT')
+            bpy.ops.object.select_all(action='DESELECT')
             context.scene.objects[inner].select = True
             context.scene.objects.active = bpy.context.scene.objects[inner]
-            func.object.delete(use_global=False)
+            bpy.ops.object.delete(use_global=False)
             #
             context.scene.objects[outer].select = True
             context.scene.objects.active = bpy.context.scene.objects[outer]
-            func.object.origin_set(type='ORIGIN_CURSOR')
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
         if self.trimgeom == "Outer":
-            func.object.select_all(action='DESELECT')
+            bpy.ops.object.select_all(action='DESELECT')
             context.scene.objects[outer].select = True
             context.scene.objects.active = bpy.context.scene.objects[outer]
-            func.object.delete(use_global=False)
+            bpy.ops.object.delete(use_global=False)
             #
             context.scene.objects[inner].select = True
             context.scene.objects.active = bpy.context.scene.objects[inner]
-            func.object.origin_set(type='ORIGIN_CURSOR')
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
         if self.trimgeom == "None":
             context.scene.objects[inner].select = True
             context.scene.objects[outer].select = True
             if self.gpurge == True:
                 for oldsel in bpy.context.selected_objects:
                     context.scene.objects[oldsel.name].grease_pencil.user_clear()
-            func.object.origin_set(type='ORIGIN_CURSOR')
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
         #return cursor location to original
         context.space_data.cursor_location[0] = curx
         context.space_data.cursor_location[1] = cury
