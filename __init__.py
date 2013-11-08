@@ -762,6 +762,10 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_sym.operator("boolean.grease_symm", text='Symmetrize')
         row_sym.prop(wm, "bolsymm", text="")
         
+        row_me_oprow = layout.row(align=True)
+        row_me_oprow.alignment = 'EXPAND'
+        row_me_oprow.operator("boolean.mask_extract", text="Extract Mask")
+        
         layout.separator()
         
         row_gt = layout.row(align=True)
@@ -781,18 +785,7 @@ class RemeshBooleanPanel(bpy.types.Panel):
             box.separator()                                         
             box.operator("boolean.purge_pencils", text='Purge All Grease Pencils')
         
-        layout.separator()
-        
-        row_me_oprow = layout.row(align=True)
-        row_me_oprow.alignment = 'EXPAND'
-        row_me_oprow.operator("boolean.mask_extract", text="Extract")
-        row_me_oprow.prop(wm, "extractStyleEnum", text="")
-        
-        row_me = layout.column(align=True)
-        row_me.alignment = 'EXPAND'
-        row_me.prop(wm, "extractDepthFloat", text="Depth")
-        row_me.prop(wm, "extractOffsetFloat", text="Offset")
-        row_me.prop(wm, "extractSmoothIterationsInt", text="Smooth")
+
         
 class BooleanOpsMenu(bpy.types.Menu):
     bl_label = "Booleans"
