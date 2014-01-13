@@ -536,42 +536,41 @@ class GreaseTrim(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'
 
     def execute(self, context):
-        #get old cam
+
         if context.scene.camera == None:
             self.report({'WARNING'}, "Set camera first!")
             return {'FINISHED'}           
         old_cam = bpy.context.scene.camera.name
         merge_op = context.scene.tool_settings.use_mesh_automerge
-        #get orignal object and cursor location
-        orgx = context.active_object.location[0]
-        orgy = context.active_object.location[1]
-        orgz = context.active_object.location[2]
+        #get cursor location
+
+
+
         curx = context.space_data.cursor_location[0]
         cury = context.space_data.cursor_location[1]
         curz = context.space_data.cursor_location[2]
-        #
+
+
         bpy.ops.view3d.snap_cursor_to_selected()
-        #create new cam
+
         inner = context.active_object.name
-        bpy.ops.object.empty_add(type='PLAIN_AXES', view_align=False, location=(0, 0, 0))
-        bpy.ops.view3d.object_as_camera()
+
+
+
         bpy.ops.view3d.camera_to_view()
         bpy.ops.view3d.viewnumpad(type='CAMERA')
         #use cam as cut plane angle and length
-        camx = context.active_object.location[0]
-        camy = context.active_object.location[1]
-        camz = context.active_object.location[2]        
+        camx = bpy.data.objects[bpy.context.scene.camera.name].location[0]
+        camy = bpy.data.objects[bpy.context.scene.camera.name].location[1]
+        camz = bpy.data.objects[bpy.context.scene.camera.name].location[2]
         cam_pos = mathutils.Vector([camx, camy, camz])
         distf = cam_pos.length
         distb = cam_pos.length - (cam_pos.length * 2)                      
         if distf == 0 or distb == 0:
             self.report({'WARNING'}, "Error in operation!")
             return {'FINISHED'}
-        bpy.ops.object.delete(use_global=False)
-        #restore cam
-        context.scene.camera = bpy.data.objects[old_cam]
-        bpy.ops.view3d.view_persportho()
-        #
+
+
         bpy.ops.object.select_all(action='DESELECT')
         context.scene.objects[inner].select = True
         context.scene.objects.active = bpy.context.scene.objects[inner]
