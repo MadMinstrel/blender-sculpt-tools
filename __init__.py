@@ -521,148 +521,36 @@ class GreaseTrim(bpy.types.Operator):
     bl_idname = "boolean.grease_trim"
     bl_label = "Grease Cut"
     bl_options = {'REGISTER', 'UNDO'}
-    
-    trimgeom = EnumProperty(name="Cut Selection:",
-                         items = (("Inner","Delete Inner",""),
-                                  ("Outer","Delete Outer",""),
-                                  ("None","None","")),                                      
-                         default = "None")
-    my_bols = bpy.props.BoolProperty(name = "Toggle Cyclic", description = "", default = False)
-    my_int = bpy.props.IntProperty(name="Smooth Curve", min = 0, max = 99, default = 0)
-    gpurge = bpy.props.BoolProperty(name = "Purge the Pencils", description = "Clears mesh grease pencil user data on restart", default = False)       
 
     @classmethod 
     def poll(cls, context):
-        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'
+        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH' and len(bpy.context.selected_objects)==1
 
     def execute(self, context):
-
-        if context.scene.camera == None:
-            self.report({'WARNING'}, "Set camera first!")
-            return {'FINISHED'}           
-        old_cam = bpy.context.scene.camera.name
-        merge_op = context.scene.tool_settings.use_mesh_automerge
-        #get cursor location
-
-
-
-        curx = context.space_data.cursor_location[0]
-        cury = context.space_data.cursor_location[1]
-        curz = context.space_data.cursor_location[2]
-
-
-        bpy.ops.view3d.snap_cursor_to_selected()
-
-        inner = context.active_object.name
-
-
-
-        bpy.ops.view3d.camera_to_view()
-        bpy.ops.view3d.viewnumpad(type='CAMERA')
-        #use cam as cut plane angle and length
-        camx = bpy.data.objects[bpy.context.scene.camera.name].location[0]
-        camy = bpy.data.objects[bpy.context.scene.camera.name].location[1]
-        camz = bpy.data.objects[bpy.context.scene.camera.name].location[2]
-        cam_pos = mathutils.Vector([camx, camy, camz])
-        distf = cam_pos.length
-        distb = cam_pos.length - (cam_pos.length * 2)                      
-        if distf == 0 or distb == 0:
-            self.report({'WARNING'}, "Error in operation!")
+        objBBDiagonal = ((context.active_object.dimensions[0]**2)+(context.active_object.dimensions[1]**2)+(context.active_object.dimensions[2]**2))**0.5
+        try:
+            bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
+            context.active_object.grease_pencil.clear()
+        except:
+            self.report({'WARNING'}, "Draw a line with grease pencil first")
             return {'FINISHED'}
-
-
-        bpy.ops.object.select_all(action='DESELECT')
-        context.scene.objects[inner].select = True
-        context.scene.objects.active = bpy.context.scene.objects[inner]
-        #get draw mode of original mesh
-        if context.active_object.grease_pencil == None:
-            self.report({'WARNING'}, "No Grease Pencil linked!")
-            return {'FINISHED'}
-        if bpy.context.active_object.grease_pencil.layers.active == None:
-            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
-            return {'FINISHED'}
-        if context.active_object.grease_pencil.layers.active.active_frame == None:
-            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
-            return {'FINISHED'}        
-        if len(context.active_object.grease_pencil.layers.active.active_frame.strokes) == 0:
-            self.report({'WARNING'}, "No Grease Pencil strokes detected!")
-            return {'FINISHED'}
-        getdm = context.active_object.grease_pencil.draw_mode
-        # transform grease to poly curve to mesh
-        bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
-        context.active_object.select = False
-        context.scene.objects.active = bpy.context.scene.objects[bpy.context.selected_objects[0].name]
-        bpy.ops.object.editmode_toggle()
-        #curve functions (cyclic, smooth)
-        if self.my_bols == True:
-            bpy.ops.curve.cyclic_toggle()
-            bpy.ops.curve.subdivide()
-        for i in range(0, self.my_int):
-            bpy.ops.curve.smooth()
-        #
-        bpy.ops.object.editmode_toggle()
+        
+        for area in bpy.context.screen.areas:
+            if area.type == 'VIEW_3D':
+                viewZAxis = tuple([z * objBBDiagonal for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
+                negViewZAxis = tuple([z * (-2*objBBDiagonal) for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
+                break
+        
+        bpy.context.scene.objects.active = bpy.context.selected_objects[0]
         bpy.ops.object.convert(target='MESH')
-        outer = context.active_object.name
-        #position generated cut plane on original object
-        bpy.ops.object.editmode_toggle()
-        context.scene.tool_settings.use_mesh_automerge = False
+        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.object.vertex_group_add()
-        bpy.ops.object.vertex_group_assign()
-        bpy.ops.mesh.extrude_edges_move()
-        bpy.ops.transform.translate(value=(distf, distf, distf), constraint_axis=(False, False, True), constraint_orientation='VIEW')
-        bpy.ops.object.vertex_group_remove_from()
-        bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.vertex_group_select()
-        bpy.ops.mesh.extrude_edges_move()
-        bpy.ops.transform.translate(value=(distb, distb, distb), constraint_axis=(False, False, True), constraint_orientation='VIEW')
-        #close faces
-        if self.my_bols == True:
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.edge_face_add()
-        context.scene.tool_settings.use_mesh_automerge = merge_op
-        bpy.ops.object.editmode_toggle()
-        #add new gpencil to outer mesh (sorry cant find link command) and inherit draw mode from original
-        bpy.ops.gpencil.data_add()
-        context.active_object.grease_pencil.draw_mode = getdm
-        #
-        context.scene.objects[inner].select = True
-        context.scene.objects.active = bpy.context.scene.objects[inner]
-        context.active_object.grease_pencil.clear()
-        if self.gpurge == True:
-            for oldsel in bpy.context.selected_objects:
-                context.scene.objects[oldsel.name].grease_pencil.user_clear() 
+        bpy.ops.transform.translate(value = viewZAxis)
+        bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.context.scene.objects.active = bpy.context.selected_objects[1]
         bpy.ops.boolean.separate()
-        #delete inner/outer
-        if self.trimgeom == "Inner":
-            bpy.ops.object.select_all(action='DESELECT')
-            context.scene.objects[inner].select = True
-            context.scene.objects.active = bpy.context.scene.objects[inner]
-            bpy.ops.object.delete(use_global=False)
-            #
-            context.scene.objects[outer].select = True
-            context.scene.objects.active = bpy.context.scene.objects[outer]
-            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-        if self.trimgeom == "Outer":
-            bpy.ops.object.select_all(action='DESELECT')
-            context.scene.objects[outer].select = True
-            context.scene.objects.active = bpy.context.scene.objects[outer]
-            bpy.ops.object.delete(use_global=False)
-            #
-            context.scene.objects[inner].select = True
-            context.scene.objects.active = bpy.context.scene.objects[inner]
-            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-        if self.trimgeom == "None":
-            context.scene.objects[inner].select = True
-            context.scene.objects[outer].select = True
-            if self.gpurge == True:
-                for oldsel in bpy.context.selected_objects:
-                    context.scene.objects[oldsel.name].grease_pencil.user_clear()
-            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-        #return cursor location to original
-        context.space_data.cursor_location[0] = curx
-        context.space_data.cursor_location[1] = cury
-        context.space_data.cursor_location[2] = curz           
+    
         return {'FINISHED'}
 
 class SymmetrizeBoolMesh(bpy.types.Operator):
@@ -702,10 +590,10 @@ class PurgeAllPencils(bpy.types.Operator):
 
     def execute(self, context):
         if not context.scene.grease_pencil == None:
-            context.scene.grease_pencil.user_clear()
+            context.scene.grease_pencil.clear()
         for obj in context.scene.objects:
             if not context.scene.objects[obj.name].grease_pencil == None:
-                context.scene.objects[obj.name].grease_pencil.user_clear() 
+                context.scene.objects[obj.name].grease_pencil.clear() 
         return {'FINISHED'}   
 
 class RemeshBooleanPanel(bpy.types.Panel):
