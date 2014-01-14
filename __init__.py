@@ -1,8 +1,8 @@
 bl_info = {
     "name": "Sculpt Tools UI",
     "author": "Ian Lloyd Dela Cruz, Nicholas Bishop, Roberto Roch, Bartosz Styperek, Piotr Adamowicz",
-    "version": (0, 3),
-    "blender": (2, 6, 9),
+    "version": (1, 0),
+    "blender": (2, 7, 0),
     "location": "3d View > Tool shelf, Shift-Ctrl-B",
     "description": "Simple UI for Boolean and Remesh operators",
     "warning": "",
@@ -282,14 +282,11 @@ class RemeshOperator(bpy.types.Operator):
         wm = context.window_manager
         oldMode = ob.mode
         
-        #try for whether we're running a dyntopo branch
         dyntopoOn = False;
-        try:
+        if context.active_object.mode == 'SCULPT': 
             if context.sculpt_object.use_dynamic_topology_sculpting:
                 dyntopoOn = True
                 bpy.ops.sculpt.dynamic_topology_toggle()
-        except:
-            pass
         
         bpy.ops.object.mode_set(mode='OBJECT')
         
