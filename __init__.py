@@ -499,6 +499,51 @@ class BooleanSeparateOperator(bpy.types.Operator):
         
         return {'FINISHED'}
         
+class XMirrorOperator(bpy.types.Operator):
+    '''Applies an X-axis mirror modifier to the selected object. If more objects are selected, they will be mirrored around the active object.'''
+    bl_idname = "boolean.mod_xmirror"
+    bl_label = "X-Mirror"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+    
+    def execute(self, context):
+        activeObj = context.active_object
+        if len(bpy.context.selected_objects)>1 :
+            for SelectedObject in bpy.context.selected_objects :
+                if SelectedObject != activeObj :
+                    oldMode = SelectedObject.mode    
+
+                    bpy.context.scene.objects.active = SelectedObject
+
+                    bpy.ops.object.mode_set(mode='OBJECT')
+
+                    md = SelectedObject.modifiers.new('xmirror', 'MIRROR')
+                    md.mirror_object = activeObj
+
+
+
+                    bpy.ops.object.mode_set(mode=oldMode)
+                    bpy.context.scene.objects.active = activeObj
+                    
+        #if there's only one object selected, apply straight fo the active obj.
+        if len(bpy.context.selected_objects)==1 :
+
+            oldMode = activeObj.mode    
+
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            md = activeObj.modifiers.new('xmirror', 'MIRROR')
+
+            bpy.ops.object.modifier_apply(apply_as='DATA', modifier=md.name)
+
+            bpy.ops.object.mode_set(mode=oldMode)
+                
+        return {'FINISHED'}
+
+        
 class DoubleSidedOffOperator(bpy.types.Operator):
     '''Turn off double sided for all objects'''
     bl_idname = "boolean.double_sided_off"
@@ -646,6 +691,10 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_sym = layout.row(align=True)
         row_sym.operator("boolean.grease_symm", text='Symmetrize')
         row_sym.prop(wm, "bolsymm", text="")
+        
+        row_mir = layout.row(align=True)
+        row_mir.alignment = 'EXPAND'
+        row_mir.operator("boolean.mod_xmirror", text="X-mirror")
         
         row_me_oprow = layout.row(align=True)
         row_me_oprow.alignment = 'EXPAND'
