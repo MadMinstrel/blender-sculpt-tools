@@ -13,6 +13,7 @@ bl_info = {
 
 import bpy
 import mathutils
+import bmesh
 from bpy.props import *
 
 
@@ -49,6 +50,9 @@ def objDuplicate(obj):
     bpy.context.scene.objects.active = activeObj
     bpy.ops.object.mode_set(mode=oldMode)
     return objCopy
+    
+def objDiagonal(obj):
+    return ((obj.dimensions[0]**2)+(obj.dimensions[1]**2)+(obj.dimensions[2]**2))**0.5
     
     
 
@@ -571,8 +575,8 @@ class GreaseTrim(bpy.types.Operator):
         return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'  and 0<len(bpy.context.selected_objects)<=2
 
     def execute(self, context):
-        objBBDiagonal = ((context.active_object.dimensions[0]**2)+(context.active_object.dimensions[1]**2)+(context.active_object.dimensions[2]**2))**0.5
-        objBBDiagonal = objBBDiagonal*2
+        objBBDiagonal = objDiagonal(context.active_object)*2
+        # objBBDiagonal = objBBDiagonal*2
         subdivisions = 32
 
         if len(bpy.context.selected_objects)==1:
@@ -585,15 +589,37 @@ class GreaseTrim(bpy.types.Operator):
                     ruler = bpy.context.selected_objects[1]
                 else: 
                     ruler = bpy.context.selected_objects[0]
+                print(objDiagonal(ruler))
+                bpy.context.scene.objects.active = ruler
+                bpy.ops.object.convert(target='MESH')
+                
+                rulerDiagonal = objDiagonal(ruler)
+                verts = []
+                
+                bm = bmesh.new()
+                bm.from_mesh(ruler.data)
+                
+                for v in bm.verts:
+                    if len(v.link_edges) == 1:
+                        v.select = True
+                        verts.append(v)
+                dist = verts[0].co - verts[1].co
+                if dist.length < rulerDiagonal/10:
+                    bm.edges.new(verts)
+                
+                bm.to_mesh(ruler.data)
+                
             except:
                 self.report({'WARNING'}, "Draw a line with grease pencil first")
                 return {'FINISHED'}
         elif len(bpy.context.selected_objects)==2:
             mesh = bpy.context.active_object
+            
             if mesh == bpy.context.selected_objects[0]:
                 ruler = bpy.context.selected_objects[1]
             else: 
                 ruler = bpy.context.selected_objects[0]
+            
             if ruler.type == 'MESH' and len(ruler.data.polygons)>0:
                 bpy.context.scene.objects.active = ruler
                 bpy.ops.object.mode_set(mode='EDIT')
@@ -603,6 +629,10 @@ class GreaseTrim(bpy.types.Operator):
                 bpy.ops.mesh.select_all(action='INVERT')
                 bpy.ops.mesh.delete(type='EDGE')
                 bpy.ops.object.mode_set(mode='OBJECT')
+            elif ruler.type == 'CURVE':
+                bpy.context.scene.objects.active = ruler
+                bpy.ops.object.convert(target='MESH')
+            
 
 
         for area in bpy.context.screen.areas:
@@ -612,7 +642,7 @@ class GreaseTrim(bpy.types.Operator):
                 break
         
         bpy.context.scene.objects.active = ruler
-        bpy.ops.object.convert(target='MESH')
+
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.transform.translate(value = viewZAxis)
