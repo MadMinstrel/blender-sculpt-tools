@@ -497,6 +497,8 @@ class BooleanSeparateOperator(bpy.types.Operator):
         bpy.data.scenes[0].objects.unlink(SelectedObjCopy)
         bpy.data.objects.remove(SelectedObjCopy)
         
+        bpy.context.active_object.select = True
+        
         return {'FINISHED'}
         
 class XMirrorOperator(bpy.types.Operator):
