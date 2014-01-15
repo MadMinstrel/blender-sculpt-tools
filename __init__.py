@@ -183,7 +183,7 @@ class MaskExtractOperator(bpy.types.Operator):
             bpy.ops.mesh.inset(thickness=0, depth=wm.extractDepthFloat-(wm.extractDepthFloat/1000), use_select_inset=False)
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.vertices_smooth(repeat = wm.extractSmoothIterationsInt)
-            bpy.ops.mesh.normals_make_consistent();
+            bpy.ops.mesh.normals_make_consistent()
 
         elif wm.extractStyleEnum == 'FLAT':
             bpy.ops.object.mode_set(mode='EDIT')
@@ -595,10 +595,13 @@ class GreaseTrim(bpy.types.Operator):
                 ruler = bpy.context.selected_objects[0]
             if ruler.type == 'MESH':
                 bpy.context.scene.objects.active = ruler
-                bpy.ops.mesh.select_all(action='TOGGLE')
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_mode(type="EDGE")
+                bpy.ops.mesh.select_all(action='SELECT')
                 bpy.ops.mesh.region_to_loop()
                 bpy.ops.mesh.select_all(action='INVERT')
                 bpy.ops.mesh.delete(type='EDGE')
+                bpy.ops.object.mode_set(mode='OBJECT')
 
 
         for area in bpy.context.screen.areas:
@@ -613,6 +616,8 @@ class GreaseTrim(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.transform.translate(value = viewZAxis)
         bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.normals_make_consistent()
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.scene.objects.active = mesh
         bpy.ops.boolean.separate()
