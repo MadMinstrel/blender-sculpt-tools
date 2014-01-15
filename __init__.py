@@ -568,31 +568,53 @@ class GreaseTrim(bpy.types.Operator):
 
     @classmethod 
     def poll(cls, context):
-        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH' and len(bpy.context.selected_objects)==1
+        return context.active_object is not None and context.active_object.mode == 'OBJECT' and context.active_object.type == 'MESH'  and 0<len(bpy.context.selected_objects)<=2
 
     def execute(self, context):
         objBBDiagonal = ((context.active_object.dimensions[0]**2)+(context.active_object.dimensions[1]**2)+(context.active_object.dimensions[2]**2))**0.5
-        try:
-            bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
-            context.active_object.grease_pencil.clear()
-        except:
-            self.report({'WARNING'}, "Draw a line with grease pencil first")
-            return {'FINISHED'}
-        
+        objBBDiagonal = objBBDiagonal*2
+
+        if len(bpy.context.selected_objects)==1:
+            try:
+                mesh = bpy.context.active_object
+                bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
+                context.active_object.grease_pencil.clear()
+                mesh = bpy.context.active_object
+                if mesh == bpy.context.selected_objects[0]:
+                    ruler = bpy.context.selected_objects[1]
+                else: 
+                    ruler = bpy.context.selected_objects[0]
+            except:
+                self.report({'WARNING'}, "Draw a line with grease pencil first")
+                return {'FINISHED'}
+        elif len(bpy.context.selected_objects)==2:
+            mesh = bpy.context.active_object
+            if mesh == bpy.context.selected_objects[0]:
+                ruler = bpy.context.selected_objects[1]
+            else: 
+                ruler = bpy.context.selected_objects[0]
+            if ruler.type == 'MESH':
+                bpy.context.scene.objects.active = ruler
+                bpy.ops.mesh.select_all(action='TOGGLE')
+                bpy.ops.mesh.region_to_loop()
+                bpy.ops.mesh.select_all(action='INVERT')
+                bpy.ops.mesh.delete(type='EDGE')
+
+
         for area in bpy.context.screen.areas:
             if area.type == 'VIEW_3D':
                 viewZAxis = tuple([z * objBBDiagonal for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
                 negViewZAxis = tuple([z * (-2*objBBDiagonal) for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
                 break
         
-        bpy.context.scene.objects.active = bpy.context.selected_objects[0]
+        bpy.context.scene.objects.active = ruler
         bpy.ops.object.convert(target='MESH')
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.transform.translate(value = viewZAxis)
         bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
         bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.context.scene.objects.active = bpy.context.selected_objects[1]
+        bpy.context.scene.objects.active = mesh
         bpy.ops.boolean.separate()
     
         return {'FINISHED'}
