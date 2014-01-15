@@ -573,6 +573,7 @@ class GreaseTrim(bpy.types.Operator):
     def execute(self, context):
         objBBDiagonal = ((context.active_object.dimensions[0]**2)+(context.active_object.dimensions[1]**2)+(context.active_object.dimensions[2]**2))**0.5
         objBBDiagonal = objBBDiagonal*2
+        subdivisions = 32
 
         if len(bpy.context.selected_objects)==1:
             try:
@@ -593,7 +594,7 @@ class GreaseTrim(bpy.types.Operator):
                 ruler = bpy.context.selected_objects[1]
             else: 
                 ruler = bpy.context.selected_objects[0]
-            if ruler.type == 'MESH':
+            if ruler.type == 'MESH' and len(ruler.data.polygons)>0:
                 bpy.context.scene.objects.active = ruler
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.select_mode(type="EDGE")
@@ -607,7 +608,7 @@ class GreaseTrim(bpy.types.Operator):
         for area in bpy.context.screen.areas:
             if area.type == 'VIEW_3D':
                 viewZAxis = tuple([z * objBBDiagonal for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
-                negViewZAxis = tuple([z * (-2*objBBDiagonal) for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
+                negViewZAxis = tuple([z * (-2*objBBDiagonal*(1/subdivisions)) for z in area.spaces[0].region_3d.view_matrix[2][0:3]])
                 break
         
         bpy.context.scene.objects.active = ruler
@@ -615,7 +616,8 @@ class GreaseTrim(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.transform.translate(value = viewZAxis)
-        bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
+        for i in range(0, subdivisions):
+            bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent()
         bpy.ops.object.mode_set(mode='OBJECT')
