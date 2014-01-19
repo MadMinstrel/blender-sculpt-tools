@@ -17,9 +17,10 @@ if "bpy" in locals():
     imp.reload(greaseTrim)
     imp.reload(meshExtract)
     imp.reload(utilOps)
+    imp.reload(Freeze)
     print("Reloaded multifiles")
 else:
-    from . import helper, booleanOps, greaseTrim, meshExtract, utilOps
+    from . import helper, booleanOps, greaseTrim, meshExtract, utilOps, Freeze
     print("Imported multifiles")
     
 import bpy
@@ -58,6 +59,11 @@ class RemeshBooleanPanel(bpy.types.Panel):
         row_rem2.alignment = 'EXPAND'
         row_rem2.prop(wm, 'remeshPreserveShape', text="Preserve Shape")
             
+        layout.separator()
+        row_freeze = layout.row(align=True)
+        row_freeze.alignment = 'EXPAND'        
+        row_freeze.operator("boolean.freeze", text="Freeze")
+        row_freeze.operator("boolean.unfreeze", text="Unfreeze")
         layout.separator()
 
         row_b1 = layout.row(align=True)
