@@ -1,4 +1,5 @@
 import bpy
+from . import helper
 
 class BooleanMeshDeformOperator(bpy.types.Operator):
     '''Binds a deforming mesh to the object'''
@@ -64,6 +65,7 @@ class RemeshOperator(bpy.types.Operator):
             wm = context.window_manager
             layout = self.layout
             layout.prop(wm, "remeshDepthInt", text="Depth")
+            layout.prop(wm, "remeshPreserveShape", text="Preserve Shape")
         
     def execute(self, context):
         # add a smooth remesh modifier
@@ -79,6 +81,9 @@ class RemeshOperator(bpy.types.Operator):
         
         bpy.ops.object.mode_set(mode='OBJECT')
         
+        if wm.remeshPreserveShape:            
+            obCopy = helper.objDuplicate(ob)
+        
         md = ob.modifiers.new('sculptremesh', 'REMESH')
         md.mode = 'SMOOTH'
         md.octree_depth = wm.remeshDepthInt
@@ -87,6 +92,17 @@ class RemeshOperator(bpy.types.Operator):
 
         # apply the modifier
         bpy.ops.object.modifier_apply(apply_as='DATA', modifier="sculptremesh")
+        
+        if wm.remeshPreserveShape:            
+            md2 = ob.modifiers.new('shrinkwrap', 'SHRINKWRAP')
+            md2.wrap_method = 'PROJECT'
+            md2.use_negative_direction = True
+            md2.use_positive_direction = True
+            md2.target = obCopy
+            bpy.ops.object.modifier_apply(apply_as='DATA', modifier="shrinkwrap")
+            
+            bpy.data.scenes[0].objects.unlink(obCopy)
+            bpy.data.objects.remove(obCopy)
         
         bpy.ops.object.mode_set(mode=oldMode)
         

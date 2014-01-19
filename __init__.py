@@ -46,8 +46,13 @@ class RemeshBooleanPanel(bpy.types.Panel):
         try:
             row_rem.operator("sculpt.remesh", text='Remesh')
             row_rem.prop(wm, 'remeshDepthInt', text="Depth")
+            
         except:
             pass
+            
+        row_rem2 = layout.row(align=True)
+        row_rem2.alignment = 'EXPAND'
+        row_rem2.prop(wm, 'remeshPreserveShape', text="Preserve Shape")
             
         layout.separator()
 
@@ -173,6 +178,7 @@ def register():
         kmi = km.keymap_items.new('sculpt.dynamic_topology_toggle', 'D', 'PRESS', shift = True)
         
     bpy.types.WindowManager.remeshDepthInt = IntProperty(min = 2, max = 10, default = 4)
+    bpy.types.WindowManager.remeshPreserveShape = BoolProperty(default = True)
 
     bpy.types.WindowManager.extractDepthFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.1)
     bpy.types.WindowManager.extractOffsetFloat = FloatProperty(min = -10.0, max = 10.0, default = 0.0)
