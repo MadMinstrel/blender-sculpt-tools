@@ -36,3 +36,11 @@ def objDuplicate(obj):
     
 def objDiagonal(obj):
     return ((obj.dimensions[0]**2)+(obj.dimensions[1]**2)+(obj.dimensions[2]**2))**0.5
+    
+def objDelete(obj):
+    rem = obj
+    remname = rem.data.name
+    bpy.data.scenes[bpy.context.scene.name].objects.unlink(rem)
+    bpy.data.objects.remove(rem)
+    # remove mesh to prevent memory being cluttered up with hundreds of high-poly objects
+    bpy.data.meshes.remove(bpy.data.meshes[remname])

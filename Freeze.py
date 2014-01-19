@@ -9,7 +9,7 @@ class BooleanFreezeOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and len(bpy.context.selected_objects)==1
+        return context.active_object is not None and len(bpy.context.selected_objects)==1 and context.active_object.frozen == False
 
     def execute(self, context):
         
@@ -30,21 +30,7 @@ class BooleanFreezeOperator(bpy.types.Operator):
         obCopy.select = False
         ob.select = True
         bpy.ops.object.group_link(group='Frozen')
-        
-        # for SelectedObject in bpy.context.selected_objects :
-            # if SelectedObject != activeObj :
-
-                # helper.objSelectFaces(activeObj, 'DESELECT')
-                # helper.objSelectFaces(SelectedObject, 'SELECT')
-
-                # bpy.context.scene.objects.active = activeObj
-
-                # md = activeObj.modifiers.new('booleanunion', 'BOOLEAN')
-                # md.operation = 'UNION'
-                # md.object = SelectedObject       
-                # bpy.ops.object.modifier_apply(apply_as='DATA', modifier="booleanunion")
-                # bpy.data.scenes[0].objects.unlink(SelectedObject)
-                # bpy.data.objects.remove(SelectedObject)
+        ob.frozen = True
         
         return {'FINISHED'}
         
@@ -56,24 +42,28 @@ class BooleanUnfreezeOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and len(bpy.context.selected_objects)==1
+        return context.active_object is not None and len(bpy.context.selected_objects)==1 and context.active_object.frozen == True
 
     def execute(self, context):
-        
-        
         ob = bpy.context.active_object
         
         for sceneObj in bpy.context.scene.objects:
             if sceneObj.parent == ob:
                 frozen = sceneObj
         
+        remname = ob.data.name
+        
         ob.data = bpy.context.scene.objects['Frozen_'+ob.name].data
         
-        bpy.data.scenes[0].objects.unlink(frozen)
+        bpy.data.scenes[bpy.context.scene.name].objects.unlink(frozen)
         bpy.data.objects.remove(frozen)
+        # remove mesh to prevent memory being cluttered up with hundreds of high-poly objects
+        bpy.data.meshes.remove(bpy.data.meshes[remname])
         
         ob.hide_render = False
         
         bpy.data.groups['Frozen'].objects.unlink(bpy.context.object)
+        
+        ob.frozen = False
         
         return {'FINISHED'}

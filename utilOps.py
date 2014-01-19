@@ -115,7 +115,8 @@ class RemeshOperator(bpy.types.Operator):
         
         if dyntopoOn == True:
             bpy.ops.sculpt.dynamic_topology_toggle()
-
+        
+        ob.select = True
         return {'FINISHED'}
         
 

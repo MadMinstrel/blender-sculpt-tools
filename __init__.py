@@ -186,6 +186,8 @@ def register():
         kmi.properties.data_path = "tool_settings.sculpt.use_edge_collapse"
         
         kmi = km.keymap_items.new('sculpt.dynamic_topology_toggle', 'D', 'PRESS', shift = True)
+
+    bpy.types.Object.frozen = BoolProperty(name="frozen", default = False)
         
     bpy.types.WindowManager.remeshDepthInt = IntProperty(min = 2, max = 10, default = 4)
     bpy.types.WindowManager.remeshSubdivisions = IntProperty(min = 0, max = 6, default = 0)
