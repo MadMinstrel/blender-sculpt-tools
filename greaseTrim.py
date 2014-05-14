@@ -83,6 +83,7 @@ class GreaseTrim(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.select_mode(type="EDGE")
         bpy.ops.transform.translate(value = viewZAxis)
         for i in range(0, subdivisions):
             bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":negViewZAxis})
