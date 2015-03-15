@@ -22,7 +22,7 @@ class GreaseTrim(bpy.types.Operator):
             try:
                 mesh = bpy.context.active_object
                 bpy.ops.gpencil.convert(type='POLY', timing_mode='LINEAR', use_timing_data=False)
-                context.active_object.grease_pencil.clear()
+                bpy.ops.boolean.purge_pencils()
                 mesh = bpy.context.active_object
                 if mesh == bpy.context.selected_objects[0]:
                     ruler = bpy.context.selected_objects[1]
